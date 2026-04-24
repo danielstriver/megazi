@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navbar } from "./Navbar";
 import { MobileSidebar, Sidebar } from "./Sidebar";
+import { Toaster } from "./ui/sonner";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
