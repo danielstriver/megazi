@@ -11,11 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as TrendingRouteImport } from './routes/trending'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PromoteRouteImport } from './routes/promote'
+import { Route as PlayRouteImport } from './routes/play'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as EarnRouteImport } from './routes/earn'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AdsRouteImport } from './routes/ads'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 
@@ -29,6 +33,11 @@ const TrendingRoute = TrendingRouteImport.update({
   path: '/trending',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -37,6 +46,16 @@ const SettingsRoute = SettingsRouteImport.update({
 const PromoteRoute = PromoteRouteImport.update({
   id: '/promote',
   path: '/promote',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlayRoute = PlayRouteImport.update({
+  id: '/play',
+  path: '/play',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExploreRoute = ExploreRouteImport.update({
@@ -54,6 +73,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdsRoute = AdsRouteImport.update({
+  id: '/ads',
+  path: '/ads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,22 +91,30 @@ const WatchIdRoute = WatchIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ads': typeof AdsRoute
   '/dashboard': typeof DashboardRoute
   '/earn': typeof EarnRoute
   '/explore': typeof ExploreRoute
+  '/login': typeof LoginRoute
+  '/play': typeof PlayRoute
   '/promote': typeof PromoteRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/trending': typeof TrendingRoute
   '/wallet': typeof WalletRoute
   '/watch/$id': typeof WatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ads': typeof AdsRoute
   '/dashboard': typeof DashboardRoute
   '/earn': typeof EarnRoute
   '/explore': typeof ExploreRoute
+  '/login': typeof LoginRoute
+  '/play': typeof PlayRoute
   '/promote': typeof PromoteRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/trending': typeof TrendingRoute
   '/wallet': typeof WalletRoute
   '/watch/$id': typeof WatchIdRoute
@@ -90,11 +122,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ads': typeof AdsRoute
   '/dashboard': typeof DashboardRoute
   '/earn': typeof EarnRoute
   '/explore': typeof ExploreRoute
+  '/login': typeof LoginRoute
+  '/play': typeof PlayRoute
   '/promote': typeof PromoteRoute
   '/settings': typeof SettingsRoute
+  '/signup': typeof SignupRoute
   '/trending': typeof TrendingRoute
   '/wallet': typeof WalletRoute
   '/watch/$id': typeof WatchIdRoute
@@ -103,33 +139,45 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ads'
     | '/dashboard'
     | '/earn'
     | '/explore'
+    | '/login'
+    | '/play'
     | '/promote'
     | '/settings'
+    | '/signup'
     | '/trending'
     | '/wallet'
     | '/watch/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ads'
     | '/dashboard'
     | '/earn'
     | '/explore'
+    | '/login'
+    | '/play'
     | '/promote'
     | '/settings'
+    | '/signup'
     | '/trending'
     | '/wallet'
     | '/watch/$id'
   id:
     | '__root__'
     | '/'
+    | '/ads'
     | '/dashboard'
     | '/earn'
     | '/explore'
+    | '/login'
+    | '/play'
     | '/promote'
     | '/settings'
+    | '/signup'
     | '/trending'
     | '/wallet'
     | '/watch/$id'
@@ -137,11 +185,15 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdsRoute: typeof AdsRoute
   DashboardRoute: typeof DashboardRoute
   EarnRoute: typeof EarnRoute
   ExploreRoute: typeof ExploreRoute
+  LoginRoute: typeof LoginRoute
+  PlayRoute: typeof PlayRoute
   PromoteRoute: typeof PromoteRoute
   SettingsRoute: typeof SettingsRoute
+  SignupRoute: typeof SignupRoute
   TrendingRoute: typeof TrendingRoute
   WalletRoute: typeof WalletRoute
   WatchIdRoute: typeof WatchIdRoute
@@ -163,6 +215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrendingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -175,6 +234,20 @@ declare module '@tanstack/react-router' {
       path: '/promote'
       fullPath: '/promote'
       preLoaderRoute: typeof PromoteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/play': {
+      id: '/play'
+      path: '/play'
+      fullPath: '/play'
+      preLoaderRoute: typeof PlayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/explore': {
@@ -198,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ads': {
+      id: '/ads'
+      path: '/ads'
+      fullPath: '/ads'
+      preLoaderRoute: typeof AdsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -217,11 +297,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdsRoute: AdsRoute,
   DashboardRoute: DashboardRoute,
   EarnRoute: EarnRoute,
   ExploreRoute: ExploreRoute,
+  LoginRoute: LoginRoute,
+  PlayRoute: PlayRoute,
   PromoteRoute: PromoteRoute,
   SettingsRoute: SettingsRoute,
+  SignupRoute: SignupRoute,
   TrendingRoute: TrendingRoute,
   WalletRoute: WalletRoute,
   WatchIdRoute: WatchIdRoute,
