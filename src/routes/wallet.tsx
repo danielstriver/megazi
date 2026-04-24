@@ -5,11 +5,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fmt, megaziToFrw, transactions } from "@/lib/mock";
 import { ArrowDownLeft, ArrowUpRight, Smartphone, Wallet as WalletIcon } from "lucide-react";
+import { useState } from "react";
+import { z } from "zod";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/wallet")({ component: WalletPage });
 
+const withdrawSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+250[0-9]{9}$/, "Phone must be in format +250XXXXXXXXX"),
+  amount: z
+    .number({ invalid_type_error: "Amount must be a number" })
+    .int("Amount must be a whole number")
+    .min(1000, "Minimum withdrawal is 1,000 FRW")
+    .max(500_000, "Maximum withdrawal is 500,000 FRW"),
+});
+
 function WalletPage() {
   const balance = 12_480;
+  const [phone, setPhone] = useState("");
+  const [amount, setAmount] = useState<string>("5000");
+  const [errors, setErrors] = useState<{ phone?: string; amount?: string }>({});
+
+  const handleWithdraw = () => {
+    const result = withdrawSchema.safeParse({
+      phone,
+      amount: Number(amount),
+    });
+    if (!result.success) {
+      const fieldErrors: { phone?: string; amount?: string } = {};
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as "phone" | "amount";
+        if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+      }
+      setErrors(fieldErrors);
+      toast.error("Please fix the errors before withdrawing");
+      return;
+    }
+    setErrors({});
+    toast.success("Withdrawal request submitted");
+  };
 
   return (
     <Layout>
@@ -58,15 +95,33 @@ function WalletPage() {
               <Label className="text-xs">Phone number</Label>
               <div className="relative mt-1">
                 <Smartphone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="h-11 bg-surface pl-9" placeholder="+250 7•• ••• •••" />
+                <Input
+                  className="h-11 bg-surface pl-9"
+                  placeholder="+250788000000"
+                  value={phone}
+                  maxLength={13}
+                  onChange={(e) => setPhone(e.target.value)}
+                  aria-invalid={!!errors.phone}
+                />
               </div>
+              {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone}</p>}
             </div>
             <div>
               <Label className="text-xs">Amount (FRW)</Label>
-              <Input type="number" defaultValue={5000} className="mt-1 h-11 bg-surface" />
+              <Input
+                type="number"
+                min={1000}
+                max={500000}
+                step={100}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="mt-1 h-11 bg-surface"
+                aria-invalid={!!errors.amount}
+              />
+              {errors.amount && <p className="mt-1 text-xs text-destructive">{errors.amount}</p>}
             </div>
-            <p className="text-[11px] text-muted-foreground">Minimum withdrawal: <span className="font-semibold text-foreground">1,000 FRW</span> · arrives in &lt; 5 min</p>
-            <Button className="h-11 w-full bg-gradient-brand hover:opacity-90">Withdraw now</Button>
+            <p className="text-[11px] text-muted-foreground">Minimum withdrawal: <span className="font-semibold text-foreground">1,000 FRW</span> · Maximum: <span className="font-semibold text-foreground">500,000 FRW</span> · arrives in &lt; 5 min</p>
+            <Button onClick={handleWithdraw} className="h-11 w-full bg-gradient-brand hover:opacity-90">Withdraw now</Button>
           </div>
         </div>
       </div>

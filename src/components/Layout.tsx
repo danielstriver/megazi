@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navbar } from "./Navbar";
 import { MobileSidebar, Sidebar } from "./Sidebar";
+import { Toaster } from "./ui/sonner";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
@@ -20,6 +21,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
         <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
       </div>
+      <Toaster />
     </div>
   );
 }
