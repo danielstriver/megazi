@@ -57,11 +57,16 @@ function Index() {
         ))}
       </div>
 
-      <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {videos.map((v) => (
-          <VideoCard key={v.id} video={v} />
+      <div className="grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {videos.map((v, i) => (
+          <div key={v.id} className={i === 2 ? "sm:col-span-2 lg:col-span-2" : ""}>
+            <VideoCard video={v} />
+          </div>
         ))}
       </div>
+
+      <div className="my-10 h-px bg-border/70" />
+      <p className="text-center text-xs text-muted-foreground">You're caught up — new drops arrive every hour.</p>
     </Layout>
   );
 }

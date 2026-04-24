@@ -13,8 +13,15 @@ function WalletPage() {
 
   return (
     <Layout>
-      <h1 className="font-display text-3xl font-bold">Wallet</h1>
-      <p className="mt-1 text-muted-foreground">Your MEGAZI balance and transaction history.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Wallet</h1>
+          <p className="mt-1 text-muted-foreground">Your MEGAZI balance and transaction history.</p>
+        </div>
+        <span className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted-foreground">
+          Rate: <span className="font-semibold text-foreground">1 FRW = 10 MGZ</span>
+        </span>
+      </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         {/* Balance card */}
@@ -58,7 +65,8 @@ function WalletPage() {
               <Label className="text-xs">Amount (FRW)</Label>
               <Input type="number" defaultValue={5000} className="mt-1 h-11 bg-surface" />
             </div>
-            <Button className="h-11 w-full bg-gradient-brand shadow-glow hover:opacity-90">Withdraw now</Button>
+            <p className="text-[11px] text-muted-foreground">Minimum withdrawal: <span className="font-semibold text-foreground">1,000 FRW</span> · arrives in &lt; 5 min</p>
+            <Button className="h-11 w-full bg-gradient-brand hover:opacity-90">Withdraw now</Button>
           </div>
         </div>
       </div>

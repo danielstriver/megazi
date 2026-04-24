@@ -15,18 +15,20 @@ export function VideoCard({ video }: { video: Video }) {
           src={video.cover}
           alt={video.title}
           loading="lazy"
-          className="aspect-video w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+          className={`w-full object-cover transition duration-500 group-hover:scale-[1.04] ${
+            video.aspect === "tall" ? "aspect-[4/5]" : video.aspect === "wide" ? "aspect-[16/8]" : "aspect-video"
+          }`}
         />
-        <div className="absolute inset-0 rounded-xl ring-0 ring-primary/0 transition group-hover:ring-2 group-hover:ring-primary/60 group-hover:shadow-glow" />
-        <div className="absolute bottom-2 right-2 rounded-md bg-black/80 px-1.5 py-0.5 text-xs font-medium">
+        <div className="absolute inset-0 rounded-xl ring-0 ring-primary/0 transition group-hover:ring-1 group-hover:ring-primary/40" />
+        <div className="absolute bottom-2 right-2 rounded-md bg-black/80 px-1.5 py-0.5 text-[11px] font-medium">
           {video.duration}
         </div>
-        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-primary backdrop-blur">
+        <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-medium text-primary backdrop-blur">
           <Sparkles className="h-3 w-3" />
-          Earn {video.reward} MGZ
+          +{video.reward} MGZ
         </div>
         <div className="absolute inset-0 grid place-items-center opacity-0 transition group-hover:opacity-100">
-          <div className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/95 text-primary-foreground shadow-lg">
             <Play className="h-5 w-5 fill-current" />
           </div>
         </div>
