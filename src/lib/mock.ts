@@ -59,14 +59,19 @@ export type Video = {
   reward: number; // MEGAZI
 };
 
+// Deterministic mock view counts (avoid SSR hydration mismatches)
+const seedViews = [264_065, 88_421, 412_903, 19_780, 156_220, 73_644, 301_119, 47_002, 222_870, 11_355, 195_610, 63_488];
+
 export const videos: Video[] = titles.map((t, i) => ({
   id: `v${i + 1}`,
   title: t,
   artist: artists[i],
   cover: covers[i],
-  views: Math.floor(Math.random() * 480_000) + 12_000,
+  views: seedViews[i],
   duration: `${2 + (i % 4)}:${(10 + i * 3).toString().padStart(2, "0")}`,
   reward: [5, 8, 10, 12, 15, 20][i % 6],
+  // subtle aspect-ratio variation for a less robotic grid
+  aspect: (i % 5 === 0 ? "tall" : i % 7 === 0 ? "wide" : "default") as "tall" | "wide" | "default",
 }));
 
 export const campaigns = [
