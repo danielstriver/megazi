@@ -57,6 +57,7 @@ export type Video = {
   views: number;
   duration: string;
   reward: number; // MEGAZI
+  aspect?: "tall" | "wide" | "default";
 };
 
 // Deterministic mock view counts (avoid SSR hydration mismatches)
