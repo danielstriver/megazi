@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -35,55 +35,48 @@
   --color-ring: var(--ring);
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
-  --font-display: "Space Grotesk", system-ui, sans-serif;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Roboto", system-ui, sans-serif;
+  --font-sans: "Roboto", system-ui, sans-serif;
 }
 
 :root {
-  /* MEGAZI dark theme — electric blue + neon purple accents */
-  --radius: 0.875rem;
-  --background: oklch(0.16 0.005 270);          /* #0f0f0f deep */
-  --foreground: oklch(0.97 0.005 270);
-  --surface: oklch(0.21 0.008 270);             /* #181818 */
-  --surface-elevated: oklch(0.25 0.01 270);
-  --card: oklch(0.21 0.008 270);
-  --card-foreground: oklch(0.97 0.005 270);
-  --popover: oklch(0.22 0.01 270);
-  --popover-foreground: oklch(0.97 0.005 270);
+  /* YouTube-inspired dark theme: near-black surfaces, red accents */
+  --radius: 0.5rem;
+  --background: oklch(0.16 0 0);            /* #0f0f0f */
+  --foreground: oklch(0.97 0 0);
+  --surface: oklch(0.22 0 0);               /* #272727 */
+  --surface-elevated: oklch(0.27 0 0);
+  --card: oklch(0.16 0 0);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.22 0 0);
+  --popover-foreground: oklch(0.97 0 0);
 
-  --primary: oklch(0.68 0.22 265);              /* electric blue */
+  --primary: oklch(0.62 0.24 27);            /* YouTube red #ff0033 */
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.62 0.26 305);            /* neon purple */
-  --secondary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.27 0 0);              /* dark gray pill */
+  --secondary-foreground: oklch(0.97 0 0);
 
-  --muted: oklch(0.27 0.01 270);
-  --muted-foreground: oklch(0.68 0.02 270);
-  --accent: oklch(0.30 0.05 280);
-  --accent-foreground: oklch(0.97 0.005 270);
+  --muted: oklch(0.27 0 0);
+  --muted-foreground: oklch(0.68 0 0);       /* #aaa */
+  --accent: oklch(0.27 0 0);
+  --accent-foreground: oklch(0.97 0 0);
 
-  --destructive: oklch(0.62 0.24 25);
+  --destructive: oklch(0.62 0.24 27);
   --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.72 0.18 155);
+  --success: oklch(0.72 0.16 155);
   --success-foreground: oklch(0.12 0 0);
 
-  --border: oklch(0.28 0.01 270);
-  --input: oklch(0.27 0.01 270);
-  --ring: oklch(0.68 0.22 265);
+  --border: oklch(0.27 0 0);
+  --input: oklch(0.22 0 0);
+  --ring: oklch(0.62 0.24 27);
 
-  --chart-1: oklch(0.68 0.22 265);
-  --chart-2: oklch(0.62 0.26 305);
-  --chart-3: oklch(0.72 0.18 155);
+  --chart-1: oklch(0.62 0.24 27);
+  --chart-2: oklch(0.55 0 0);
+  --chart-3: oklch(0.72 0.16 155);
   --chart-4: oklch(0.78 0.16 70);
-  --chart-5: oklch(0.62 0.24 25);
-
-  --gradient-brand: linear-gradient(135deg, oklch(0.68 0.22 265), oklch(0.62 0.26 305));
-  --gradient-glow: radial-gradient(circle at 30% 20%, oklch(0.68 0.22 265 / 0.25), transparent 60%);
-  --shadow-glow: 0 0 0 1px oklch(0.68 0.22 265 / 0.4), 0 8px 30px -8px oklch(0.68 0.22 265 / 0.5);
-  --shadow-card: 0 4px 24px -8px oklch(0 0 0 / 0.5);
-  --shadow-soft: 0 2px 12px -4px oklch(0 0 0 / 0.4);
+  --chart-5: oklch(0.45 0 0);
 }
 
-/* Force dark by default — MEGAZI is a dark-first product */
 html {
   color-scheme: dark;
 }
@@ -97,37 +90,17 @@ html {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
   }
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 }
 
 @layer utilities {
-  .bg-gradient-brand {
-    background-image: var(--gradient-brand);
-  }
-  .text-gradient-brand {
-    background-image: var(--gradient-brand);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
-  }
-  .shadow-card {
-    box-shadow: var(--shadow-card);
-  }
-  .glow-ring {
-    box-shadow: 0 0 0 1px oklch(0.68 0.22 265 / 0.5), 0 0 24px oklch(0.68 0.22 265 / 0.25);
-  }
   .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 8px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 }
-

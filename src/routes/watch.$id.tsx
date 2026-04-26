@@ -1,92 +1,152 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Layout } from "@/components/Layout";
-import { videos, fmt } from "@/lib/mock";
-import { Heart, MessageCircle, Share2, Sparkles, ThumbsUp } from "lucide-react";
+import { useVideo, useVideos, useWatchHistory } from "@/lib/queries";
+import { MessageCircle, Share2, ThumbsUp, Heart, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { fmt, initialsOf } from "@/lib/format";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/watch/$id")({
   component: WatchPage,
-  loader: ({ params }) => {
-    const v = videos.find((x) => x.id === params.id);
-    if (!v) throw notFound();
-    return v;
-  },
-  notFoundComponent: () => (
-    <Layout>
-      <p className="text-muted-foreground">Video not found.</p>
-    </Layout>
-  ),
 });
 
 function WatchPage() {
-  const v = Route.useLoaderData();
-  const recs = videos.filter((x) => x.id !== v.id).slice(0, 8);
+  const { id } = Route.useParams();
+  const { data: video, isLoading } = useVideo(id);
+  const { data: allVideos } = useVideos();
+  const { data: history } = useWatchHistory();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [claiming, setClaiming] = useState(false);
+
+  const recs = (allVideos || []).filter((x) => x.id !== id).slice(0, 8);
+  const alreadyWatched = !!history?.find((h) => h.content_id === id && h.content_type === "video");
+
+  const claim = async () => {
+    if (!user) {
+      toast.error("Please sign in to earn rewards");
+      navigate({ to: "/login" });
+      return;
+    }
+    if (!video) return;
+    setClaiming(true);
+    const { data, error } = await supabase.rpc("claim_watch_reward", {
+      _content_type: "video",
+      _content_id: video.id,
+      _reward: video.reward_megazi,
+      _label: `Watched '${video.title}'`,
+    });
+    setClaiming(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (data === -1) {
+      toast.info("You've already earned for this video");
+    } else {
+      toast.success(`+${video.reward_megazi} MGZ added to your wallet`);
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+      qc.invalidateQueries({ queryKey: ["watch_history"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <Skeleton className="aspect-video w-full rounded-xl" />
+        <Skeleton className="mt-4 h-8 w-2/3" />
+      </Layout>
+    );
+  }
+
+  if (!video) {
+    return (
+      <Layout>
+        <p className="text-muted-foreground">Video not found.</p>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div>
-          <div className="relative overflow-hidden rounded-2xl bg-black aspect-video shadow-card">
-            <img src={v.cover} alt={v.title} className="absolute inset-0 h-full w-full object-cover opacity-70" />
+          <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+            <img src={video.cover_url} alt={video.title} className="absolute inset-0 h-full w-full object-cover opacity-80" />
             <div className="absolute inset-0 grid place-items-center bg-black/40">
-              <div className="grid h-20 w-20 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8"><path d="M8 5v14l11-7z" /></svg>
-              </div>
-            </div>
-            {/* Floating reward indicator */}
-            <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-primary/40 bg-black/80 px-3 py-2 text-sm font-semibold text-primary backdrop-blur shadow-glow">
-              <Sparkles className="h-4 w-4 animate-pulse" />
-              Earning {v.reward} MGZ
+              <button
+                onClick={claim}
+                disabled={claiming}
+                className="grid h-20 w-20 place-items-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary/90"
+                aria-label="Play and claim reward"
+              >
+                {claiming ? <Loader2 className="h-8 w-8 animate-spin" /> : <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8"><path d="M8 5v14l11-7z" /></svg>}
+              </button>
             </div>
           </div>
 
-          <h1 className="mt-5 font-display text-2xl font-bold">{v.title}</h1>
+          <h1 className="mt-4 text-xl font-semibold">{video.title}</h1>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-brand text-sm font-bold">
-                {v.artist.split(" ").map(s => s[0]).slice(0, 2).join("")}
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-surface text-sm font-semibold">
+                {initialsOf(video.artist)}
               </div>
               <div>
-                <p className="font-semibold">{v.artist}</p>
-                <p className="text-xs text-muted-foreground">{fmt(v.views)} views</p>
+                <p className="text-sm font-semibold">{video.artist}</p>
+                <p className="text-xs text-muted-foreground">{fmt(Number(video.views))} views</p>
               </div>
-              <Button className="ml-2 rounded-full bg-foreground text-background hover:bg-foreground/90">Subscribe</Button>
+              <Button className="ml-2 rounded-full">Subscribe</Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" className="rounded-full bg-surface hover:bg-accent gap-2"><ThumbsUp className="h-4 w-4" />12K</Button>
-              <Button variant="secondary" className="rounded-full bg-surface hover:bg-accent gap-2"><MessageCircle className="h-4 w-4" />Comment</Button>
-              <Button variant="secondary" className="rounded-full bg-surface hover:bg-accent gap-2"><Share2 className="h-4 w-4" />Share</Button>
-              <Button variant="secondary" className="rounded-full bg-surface hover:bg-accent" size="icon"><Heart className="h-4 w-4" /></Button>
+              <Button
+                onClick={claim}
+                disabled={claiming || alreadyWatched}
+                variant="secondary"
+                className="rounded-full"
+              >
+                {alreadyWatched ? <Check className="h-4 w-4" /> : claiming ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {alreadyWatched ? `Earned ${video.reward_megazi} MGZ` : `Earn +${video.reward_megazi} MGZ`}
+              </Button>
+              <Button variant="secondary" size="icon" className="rounded-full"><ThumbsUp className="h-4 w-4" /></Button>
+              <Button variant="secondary" size="icon" className="rounded-full"><MessageCircle className="h-4 w-4" /></Button>
+              <Button variant="secondary" size="icon" className="rounded-full"><Share2 className="h-4 w-4" /></Button>
+              <Button variant="secondary" size="icon" className="rounded-full"><Heart className="h-4 w-4" /></Button>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">{fmt(v.views)} views · 2 days ago</span>
-            <p className="mt-2 leading-relaxed">
-              New single off the upcoming tape. Shot in Kigali. Drop a comment below — top voted gets a shoutout
-              in the next video. #MEGAZI
+          <div className="mt-4 rounded-xl bg-surface p-4 text-sm">
+            <span className="font-semibold">{fmt(Number(video.views))} views</span>
+            <p className="mt-2 text-muted-foreground leading-relaxed">
+              New single from {video.artist}. Watch the full track to earn {video.reward_megazi} MGZ.
             </p>
           </div>
         </div>
 
         <aside className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Up next</h2>
+          <h2 className="text-sm font-semibold">Up next</h2>
           {recs.map((r) => (
             <Link
               key={r.id}
               to="/watch/$id"
               params={{ id: r.id }}
-              className="group flex gap-3 rounded-xl p-2 transition hover:bg-surface"
+              className="group flex gap-3 rounded-lg p-1 transition hover:bg-surface"
             >
               <div className="relative h-20 w-36 shrink-0 overflow-hidden rounded-lg">
-                <img src={r.cover} alt={r.title} className="h-full w-full object-cover transition group-hover:scale-105" />
-                <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 text-[10px]">{r.duration}</span>
+                <img src={r.cover_url} alt={r.title} className="h-full w-full object-cover" />
+                <span className="absolute bottom-1 right-1 rounded bg-black/85 px-1 text-[10px]">{r.duration}</span>
               </div>
               <div className="min-w-0">
-                <p className="line-clamp-2 text-sm font-semibold">{r.title}</p>
+                <p className="line-clamp-2 text-sm font-medium">{r.title}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{r.artist}</p>
-                <p className="text-xs text-primary font-semibold">+{r.reward} MGZ</p>
+                <p className="text-xs text-muted-foreground">+{r.reward_megazi} MGZ</p>
               </div>
             </Link>
           ))}
