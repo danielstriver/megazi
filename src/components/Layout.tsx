@@ -10,7 +10,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar
-        balance={12_480}
         onMenuClick={() => {
           setOpen((o) => !o);
           setMobileOpen((o) => !o);
@@ -19,7 +18,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex">
         <Sidebar open={open} />
         <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
-        <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
+        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
       </div>
       <Toaster />
     </div>
