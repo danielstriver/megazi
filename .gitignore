@@ -1,3 +1,7 @@
+# Environment — use .env.local for your own credentials (see .env.example)
+.env
+.env.local
+
 # Logs
 logs
 *.log

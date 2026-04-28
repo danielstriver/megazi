@@ -65,6 +65,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          video_url: string | null
         }
         Insert: {
           budget_frw: number
@@ -77,6 +78,7 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          video_url?: string | null
         }
         Update: {
           budget_frw?: number
@@ -89,6 +91,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -204,10 +207,12 @@ export type Database = {
         Row: {
           artist: string
           aspect: string | null
+          campaign_id: string | null
           cover_url: string
           created_at: string
           duration: string
           id: string
+          is_active: boolean
           reward_megazi: number
           title: string
           views: number
@@ -215,10 +220,12 @@ export type Database = {
         Insert: {
           artist: string
           aspect?: string | null
+          campaign_id?: string | null
           cover_url: string
           created_at?: string
           duration: string
           id?: string
+          is_active?: boolean
           reward_megazi?: number
           title: string
           views?: number
@@ -226,10 +233,12 @@ export type Database = {
         Update: {
           artist?: string
           aspect?: string | null
+          campaign_id?: string | null
           cover_url?: string
           created_at?: string
           duration?: string
           id?: string
+          is_active?: boolean
           reward_megazi?: number
           title?: string
           views?: number
@@ -307,6 +316,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_campaign_views: {
+        Args: { _campaign_id: string }
+        Returns: undefined
+      }
+      topup_campaign: {
+        Args: { _campaign_id: string; _extra_views: number }
+        Returns: undefined
       }
     }
     Enums: {

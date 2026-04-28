@@ -9,6 +9,7 @@ export function useVideos() {
       const { data, error } = await supabase
         .from("videos")
         .select("*")
+        .eq("is_active", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -31,7 +32,10 @@ export function useAds() {
   return useQuery({
     queryKey: ["ads"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ads").select("*").order("featured", { ascending: false });
+      const { data, error } = await supabase
+        .from("ads")
+        .select("*")
+        .order("featured", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -42,7 +46,10 @@ export function useGames() {
   return useQuery({
     queryKey: ["games"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("games").select("*").order("players", { ascending: false });
+      const { data, error } = await supabase
+        .from("games")
+        .select("*")
+        .order("players", { ascending: false });
       if (error) throw error;
       return data;
     },

@@ -54,6 +54,10 @@ function WatchPage() {
       qc.invalidateQueries({ queryKey: ["wallet"] });
       qc.invalidateQueries({ queryKey: ["watch_history"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      if (video.campaign_id) {
+        qc.invalidateQueries({ queryKey: ["campaigns"] });
+      }
     }
   };
 
@@ -74,12 +78,51 @@ function WatchPage() {
     );
   }
 
+  if (!video.is_active) {
+    return (
+      <Layout>
+        <div className="mx-auto max-w-xl py-16 text-center">
+          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="h-7 w-7 text-destructive"
+            >
+              <circle cx={12} cy={12} r={10} />
+              <line x1={12} y1={8} x2={12} y2={12} />
+              <line x1={12} y1={16} x2={12.01} y2={16} />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold">Promotion ended</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This video reached its target views. The artist can top up the campaign to make it
+            available again.
+          </p>
+          <Link to="/" className="mt-6 inline-block text-sm text-primary hover:underline">
+            Browse other videos
+          </Link>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div>
           <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
-            <img src={video.cover_url} alt={video.title} className="absolute inset-0 h-full w-full object-cover opacity-80" />
+            <img
+              src={video.cover_url}
+              alt={video.title}
+              className="absolute inset-0 h-full w-full object-cover opacity-80"
+            />
+            {video.campaign_id && (
+              <span className="absolute left-3 top-3 rounded bg-primary/90 px-2 py-0.5 text-xs font-semibold text-white">
+                Promoted
+              </span>
+            )}
             <div className="absolute inset-0 grid place-items-center bg-black/40">
               <button
                 onClick={claim}
@@ -87,7 +130,13 @@ function WatchPage() {
                 className="grid h-20 w-20 place-items-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary/90"
                 aria-label="Play and claim reward"
               >
-                {claiming ? <Loader2 className="h-8 w-8 animate-spin" /> : <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8"><path d="M8 5v14l11-7z" /></svg>}
+                {claiming ? (
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
@@ -112,20 +161,35 @@ function WatchPage() {
                 variant="secondary"
                 className="rounded-full"
               >
-                {alreadyWatched ? <Check className="h-4 w-4" /> : claiming ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {alreadyWatched ? `Earned ${video.reward_megazi} MGZ` : `Earn +${video.reward_megazi} MGZ`}
+                {alreadyWatched ? (
+                  <Check className="h-4 w-4" />
+                ) : claiming ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {alreadyWatched
+                  ? `Earned ${video.reward_megazi} MGZ`
+                  : `Earn +${video.reward_megazi} MGZ`}
               </Button>
-              <Button variant="secondary" size="icon" className="rounded-full"><ThumbsUp className="h-4 w-4" /></Button>
-              <Button variant="secondary" size="icon" className="rounded-full"><MessageCircle className="h-4 w-4" /></Button>
-              <Button variant="secondary" size="icon" className="rounded-full"><Share2 className="h-4 w-4" /></Button>
-              <Button variant="secondary" size="icon" className="rounded-full"><Heart className="h-4 w-4" /></Button>
+              <Button variant="secondary" size="icon" className="rounded-full">
+                <ThumbsUp className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" size="icon" className="rounded-full">
+                <MessageCircle className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" size="icon" className="rounded-full">
+                <Share2 className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" size="icon" className="rounded-full">
+                <Heart className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
           <div className="mt-4 rounded-xl bg-surface p-4 text-sm">
             <span className="font-semibold">{fmt(Number(video.views))} views</span>
             <p className="mt-2 text-muted-foreground leading-relaxed">
-              New single from {video.artist}. Watch the full track to earn {video.reward_megazi} MGZ.
+              New single from {video.artist}. Watch the full track to earn {video.reward_megazi}{" "}
+              MGZ.
             </p>
           </div>
         </div>
@@ -141,7 +205,9 @@ function WatchPage() {
             >
               <div className="relative h-20 w-36 shrink-0 overflow-hidden rounded-lg">
                 <img src={r.cover_url} alt={r.title} className="h-full w-full object-cover" />
-                <span className="absolute bottom-1 right-1 rounded bg-black/85 px-1 text-[10px]">{r.duration}</span>
+                <span className="absolute bottom-1 right-1 rounded bg-black/85 px-1 text-[10px]">
+                  {r.duration}
+                </span>
               </div>
               <div className="min-w-0">
                 <p className="line-clamp-2 text-sm font-medium">{r.title}</p>
