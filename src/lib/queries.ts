@@ -9,6 +9,7 @@ export function useVideos() {
       const { data, error } = await supabase
         .from("videos")
         .select("*")
+        .eq("is_active", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -31,7 +32,10 @@ export function useAds() {
   return useQuery({
     queryKey: ["ads"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ads").select("*").order("featured", { ascending: false });
+      const { data, error } = await supabase
+        .from("ads")
+        .select("*")
+        .order("featured", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -42,7 +46,10 @@ export function useGames() {
   return useQuery({
     queryKey: ["games"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("games").select("*").order("players", { ascending: false });
+      const { data, error } = await supabase
+        .from("games")
+        .select("*")
+        .order("players", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -117,6 +124,42 @@ export function useWatchHistory() {
         .eq("user_id", user.id);
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+export function useCampaign(id: string | null) {
+  return useQuery({
+    queryKey: ["campaign", id],
+    enabled: !!id,
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useHasSubscribed(campaignId: string | null) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["subscription", campaignId, user?.id],
+    enabled: !!user && !!campaignId,
+    queryFn: async () => {
+      if (!user || !campaignId) return false;
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("campaign_id", campaignId)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
     },
   });
 }

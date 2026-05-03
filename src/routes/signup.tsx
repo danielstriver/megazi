@@ -42,17 +42,21 @@ function SignupPage() {
     }
     setErrors({});
     setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-        data: { display_name: displayName },
-      },
+      options: { data: { display_name: displayName } },
     });
+    if (error) { setSubmitting(false); toast.error(error.message); return; }
+
+    if (data.user) {
+      await supabase
+        .from("profiles")
+        .upsert({ user_id: data.user.id, display_name: displayName }, { onConflict: "user_id" });
+    }
+
     setSubmitting(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Account created — welcome to MEGAZI");
+    toast.success("Welcome to MEGAZI! You're all set.");
     navigate({ to: "/" });
   };
 
