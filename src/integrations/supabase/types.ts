@@ -241,6 +241,7 @@ export type Database = {
           cover_url: string
           created_at: string
           duration: string
+          goal_type: string
           id: string
           is_active: boolean
           reward_megazi: number
@@ -254,6 +255,7 @@ export type Database = {
           cover_url: string
           created_at?: string
           duration: string
+          goal_type?: string
           id?: string
           is_active?: boolean
           reward_megazi?: number
@@ -267,6 +269,7 @@ export type Database = {
           cover_url?: string
           created_at?: string
           duration?: string
+          goal_type?: string
           id?: string
           is_active?: boolean
           reward_megazi?: number

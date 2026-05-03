@@ -31,6 +31,21 @@ function WatchPage() {
   const recs = (allVideos || []).filter((x) => x.id !== id).slice(0, 8);
   const alreadyWatched = !!history?.find((h) => h.content_id === id && h.content_type === "video");
 
+  // For "both" campaigns, each goal can be independently exhausted before the other.
+  // Show the button as disabled (goal met globally) so the viewer understands why they can't earn.
+  const viewsGoalMet =
+    video?.goal_type === "both" &&
+    !!campaign &&
+    Number(campaign.current_views) >= Number(campaign.target_views);
+  const subsGoalMet =
+    !!campaign &&
+    Number(campaign.target_subs) > 0 &&
+    Number(campaign.current_subs) >= Number(campaign.target_subs);
+
+  const showSubscribeSection =
+    !!video?.campaign_id &&
+    (video.goal_type === "subs" || video.goal_type === "both");
+
   const claim = async () => {
     if (!user) {
       toast.error("Please sign in to earn rewards");
@@ -187,18 +202,20 @@ function WatchPage() {
             <div className="flex items-center gap-2">
               <Button
                 onClick={claim}
-                disabled={claiming || alreadyWatched}
+                disabled={claiming || alreadyWatched || viewsGoalMet}
                 variant="secondary"
                 className="rounded-full"
               >
-                {alreadyWatched ? (
+                {alreadyWatched || viewsGoalMet ? (
                   <Check className="h-4 w-4" />
                 ) : claiming ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 {alreadyWatched
                   ? `Earned ${video.reward_megazi} MGZ`
-                  : `Earn +${video.reward_megazi} MGZ`}
+                  : viewsGoalMet
+                    ? "Views goal met"
+                    : `Earn +${video.reward_megazi} MGZ`}
               </Button>
               <Button variant="secondary" size="icon" className="rounded-full">
                 <ThumbsUp className="h-4 w-4" />
@@ -223,39 +240,41 @@ function WatchPage() {
             </p>
           </div>
 
-          {/* Subscribe prompt — only for campaigns with sub goal */}
-          {video.campaign_id &&
-            campaign &&
-            (campaign.goal_type === "subs" || campaign.goal_type === "both") && (
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-surface p-4">
-                <div>
-                  <p className="font-semibold">Subscribe to {video.artist}</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    Earn an extra{" "}
-                    <span className="font-medium text-yellow-400">+{REWARD_PER_SUB_MGZ} MGZ</span>{" "}
-                    for subscribing
-                  </p>
-                </div>
-                <Button
-                  onClick={subscribe}
-                  disabled={subscribing || !!hasSubscribed}
-                  variant={hasSubscribed ? "secondary" : "default"}
-                  className="ml-4 shrink-0 rounded-full"
-                >
-                  {subscribing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : hasSubscribed ? (
-                    <>
-                      <Check className="mr-1.5 h-4 w-4" /> Subscribed
-                    </>
+          {/* Subscribe prompt — only for campaigns with a sub goal */}
+          {showSubscribeSection && (
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-surface p-4">
+              <div>
+                <p className="font-semibold">Subscribe to {video.artist}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {subsGoalMet ? (
+                    "Subscriber goal reached for this campaign."
                   ) : (
                     <>
-                      <Bell className="mr-1.5 h-4 w-4" /> Subscribe
+                      Earn an extra{" "}
+                      <span className="font-medium text-yellow-400">+{REWARD_PER_SUB_MGZ} MGZ</span>{" "}
+                      for subscribing
                     </>
                   )}
-                </Button>
+                </p>
               </div>
-            )}
+              <Button
+                onClick={subscribe}
+                disabled={subscribing || !!hasSubscribed || subsGoalMet}
+                variant={hasSubscribed || subsGoalMet ? "secondary" : "default"}
+                className="ml-4 shrink-0 rounded-full"
+              >
+                {subscribing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : hasSubscribed ? (
+                  <><Check className="mr-1.5 h-4 w-4" /> Subscribed</>
+                ) : subsGoalMet ? (
+                  <><Check className="mr-1.5 h-4 w-4" /> Goal met</>
+                ) : (
+                  <><Bell className="mr-1.5 h-4 w-4" /> Subscribe</>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
 
         <aside className="flex flex-col gap-3">

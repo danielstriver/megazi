@@ -165,6 +165,7 @@ function Promote() {
       duration: "Promoted",
       reward_megazi: REWARD_PER_VIEW_MGZ,
       campaign_id: campaign.id,
+      goal_type: result.data.goalType,
       is_active: true,
     });
 
