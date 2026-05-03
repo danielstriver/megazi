@@ -4,9 +4,9 @@ import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Activity, Eye, Loader2, Plus, Wallet, Zap } from "lucide-react";
+import { Activity, Eye, Loader2, Plus, Users, Wallet, Zap } from "lucide-react";
 import { useCampaigns } from "@/lib/queries";
-import { COST_PER_VIEW_FRW, fmt } from "@/lib/format";
+import { COST_PER_SUB_FRW, COST_PER_VIEW_FRW, fmt } from "@/lib/format";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,30 +14,40 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/dashboard")({ component: Dashboard });
 
-function TopUpForm({ campaignId, onDone }: { campaignId: string; onDone: () => void }) {
+type Campaign = NonNullable<ReturnType<typeof useCampaigns>["data"]>[number];
+
+function TopUpForm({ campaign, onDone }: { campaign: Campaign; onDone: () => void }) {
   const [extraViews, setExtraViews] = useState("5000");
+  const [extraSubs, setExtraSubs] = useState("100");
   const [loading, setLoading] = useState(false);
   const qc = useQueryClient();
 
-  const parsed = Math.max(0, Number(extraViews) || 0);
-  const cost = parsed * COST_PER_VIEW_FRW;
+  const showViews = campaign.goal_type !== "subs";
+  const showSubs = campaign.goal_type !== "views";
+  const parsedViews = showViews ? Math.max(0, Number(extraViews) || 0) : 0;
+  const parsedSubs = showSubs ? Math.max(0, Number(extraSubs) || 0) : 0;
+  const totalCost = parsedViews * COST_PER_VIEW_FRW + parsedSubs * COST_PER_SUB_FRW;
 
   const handleTopUp = async () => {
-    if (parsed < 100) {
-      toast.error("Minimum top-up is 100 views");
-      return;
-    }
+    if (showViews && parsedViews < 100) { toast.error("Minimum 100 views"); return; }
+    if (showSubs && parsedSubs < 10) { toast.error("Minimum 10 subscribers"); return; }
     setLoading(true);
-    const { error } = await supabase.rpc("topup_campaign", {
-      _campaign_id: campaignId,
-      _extra_views: parsed,
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    if (showViews && parsedViews > 0) {
+      const { error } = await supabase.rpc("topup_campaign", {
+        _campaign_id: campaign.id,
+        _extra_views: parsedViews,
+      });
+      if (error) { setLoading(false); toast.error(error.message); return; }
     }
-    toast.success(`Campaign reactivated with +${fmt(parsed)} views`);
+    if (showSubs && parsedSubs > 0) {
+      const { error } = await supabase.rpc("topup_campaign_subs", {
+        _campaign_id: campaign.id,
+        _extra_subs: parsedSubs,
+      });
+      if (error) { setLoading(false); toast.error(error.message); return; }
+    }
+    setLoading(false);
+    toast.success("Campaign reactivated!");
     qc.invalidateQueries({ queryKey: ["campaigns"] });
     qc.invalidateQueries({ queryKey: ["videos"] });
     onDone();
@@ -45,23 +55,43 @@ function TopUpForm({ campaignId, onDone }: { campaignId: string; onDone: () => v
 
   return (
     <div className="mt-3 rounded-lg border border-border bg-background p-3 space-y-2">
-      <p className="text-xs font-medium text-muted-foreground">Add more views</p>
-      <div className="flex gap-2">
-        <Input
-          type="number"
-          min={100}
-          value={extraViews}
-          onChange={(e) => setExtraViews(e.target.value)}
-          className="h-8 text-sm"
-        />
-        <Button size="sm" onClick={handleTopUp} disabled={loading} className="shrink-0">
-          {loading && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-          Pay {fmt(cost)} FRW
-        </Button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {fmt(parsed)} views × {COST_PER_VIEW_FRW} FRW/view
-      </p>
+      <p className="text-xs font-medium text-muted-foreground">Add more reach</p>
+      {showViews && (
+        <div className="flex items-center gap-2">
+          <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <Input
+            type="number"
+            min={100}
+            value={extraViews}
+            onChange={(e) => setExtraViews(e.target.value)}
+            className="h-8 text-sm"
+            placeholder="Views"
+          />
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {fmt(parsedViews * COST_PER_VIEW_FRW)} FRW
+          </span>
+        </div>
+      )}
+      {showSubs && (
+        <div className="flex items-center gap-2">
+          <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <Input
+            type="number"
+            min={10}
+            value={extraSubs}
+            onChange={(e) => setExtraSubs(e.target.value)}
+            className="h-8 text-sm"
+            placeholder="Subscribers"
+          />
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {fmt(parsedSubs * COST_PER_SUB_FRW)} FRW
+          </span>
+        </div>
+      )}
+      <Button size="sm" onClick={handleTopUp} disabled={loading} className="w-full">
+        {loading && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+        Pay {fmt(totalCost)} FRW
+      </Button>
     </div>
   );
 }
@@ -72,6 +102,7 @@ function Dashboard() {
 
   const totalBudget = (campaigns || []).reduce((s, c) => s + Number(c.budget_frw), 0);
   const totalViews = (campaigns || []).reduce((s, c) => s + Number(c.current_views), 0);
+  const totalSubs = (campaigns || []).reduce((s, c) => s + Number(c.current_subs), 0);
   const active = (campaigns || []).filter((c) => c.status === "Active").length;
 
   return (
@@ -96,13 +127,13 @@ function Dashboard() {
           hint={`${active} active`}
         />
         <StatCard icon={Eye} label="Total views" value={fmt(totalViews)} />
+        <StatCard icon={Users} label="Total subscribers" value={fmt(totalSubs)} />
         <StatCard
           icon={Zap}
           label="Budget spent"
           value={`${fmt(totalBudget)} FRW`}
           hint={`${fmt(totalBudget * 10)} MGZ rewarded`}
         />
-        <StatCard icon={Wallet} label="Status" value={active > 0 ? "Active" : "Idle"} />
       </div>
 
       <h2 className="mt-10 mb-4 text-lg font-semibold">My campaigns</h2>
@@ -116,11 +147,15 @@ function Dashboard() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {campaigns.map((c) => {
-            const pct = Math.min(
-              100,
-              Math.round((Number(c.current_views) / Number(c.target_views)) * 100),
-            );
+            const viewPct = c.target_views > 0
+              ? Math.min(100, Math.round((Number(c.current_views) / Number(c.target_views)) * 100))
+              : 0;
+            const subPct = c.target_subs > 0
+              ? Math.min(100, Math.round((Number(c.current_subs) / Number(c.target_subs)) * 100))
+              : 0;
             const isSuspended = c.status === "Suspended";
+            const showViews = c.goal_type !== "subs";
+            const showSubs = c.goal_type !== "views";
             return (
               <div
                 key={c.id}
@@ -152,18 +187,37 @@ function Dashboard() {
                     <span className="text-muted-foreground">Budget</span>
                     <span className="font-medium">{fmt(Number(c.budget_frw))} FRW</span>
                   </div>
-                  <div>
-                    <div className="mb-1.5 flex justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        {fmt(Number(c.current_views))} / {fmt(Number(c.target_views))} views
-                      </span>
-                      <span className="font-medium">{pct}%</span>
+                  {showViews && (
+                    <div>
+                      <div className="mb-1.5 flex justify-between text-xs">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          {fmt(Number(c.current_views))} / {fmt(Number(c.target_views))} views
+                        </span>
+                        <span className="font-medium">{viewPct}%</span>
+                      </div>
+                      <Progress
+                        value={viewPct}
+                        className={`h-1.5 ${isSuspended ? "[&>div]:bg-destructive" : ""}`}
+                      />
                     </div>
-                    <Progress
-                      value={pct}
-                      className={`h-1.5 ${isSuspended ? "[&>div]:bg-destructive" : ""}`}
-                    />
-                  </div>
+                  )}
+                  {showSubs && (
+                    <div>
+                      <div className="mb-1.5 flex justify-between text-xs">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {fmt(Number(c.current_subs))} / {fmt(Number(c.target_subs))} subscribers
+                        </span>
+                        <span className="font-medium">{subPct}%</span>
+                      </div>
+                      <Progress
+                        value={subPct}
+                        className={`h-1.5 ${isSuspended ? "[&>div]:bg-destructive" : ""}`}
+                      />
+                    </div>
+                  )}
+
 
                   {isSuspended && (
                     <>
@@ -171,7 +225,7 @@ function Dashboard() {
                         Target reached — video hidden from feed.
                       </p>
                       {toppingUp === c.id ? (
-                        <TopUpForm campaignId={c.id} onDone={() => setToppingUp(null)} />
+                        <TopUpForm campaign={c} onDone={() => setToppingUp(null)} />
                       ) : (
                         <Button
                           size="sm"

@@ -50,9 +50,64 @@ Routes are auto-registered via `src/routeTree.gen.ts` (do not edit manually).
 
 `src/lib/auth.tsx` provides `AuthProvider` and `useAuth()` hook (returns `user`, `session`, `loading`, `signOut`). Protected routes check `useAuth()` and redirect to `/login` when unauthenticated.
 
+RBAC uses the `user_roles` table and the `has_role(_role, _user_id)` Supabase RPC. Enum: `app_role = "admin" | "user"`.
+
+### Supabase Clients
+
+- `src/integrations/supabase/client.ts` — browser client using anon key (`VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`). Subject to RLS. Use this everywhere in routes and components.
+- `src/integrations/supabase/client.server.ts` — server-side admin client using service role key (`SUPABASE_SERVICE_ROLE_KEY`). Bypasses RLS. Only use in server functions/routes, never in client code.
+
 ### Database Schema (Supabase)
 
-Core tables: `videos`, `ads`, `games`, `campaigns`, `wallets`, `transactions`, `profiles`, `watch_history`. TypeScript types are auto-generated at `src/integrations/supabase/types.ts`.
+Core tables: `videos`, `ads`, `games`, `campaigns`, `wallets`, `transactions`, `profiles`, `watch_history`, `user_roles`. TypeScript types are auto-generated at `src/integrations/supabase/types.ts`.
+
+Key columns:
+- `videos.campaign_id` — FK to `campaigns.id`; present only on promoted videos
+- `videos.is_active` — set to `false` when the campaign is suspended (target views reached)
+- `campaigns.status` — `"Active"` | `"Suspended"` | `"Completed"`
+- `campaigns.current_views` / `campaigns.target_views` — view progress tracking
+
+### Supabase RPC Functions
+
+Business logic that must be atomic lives in Postgres RPC functions; call them via `supabase.rpc(...)`:
+
+| Function | Purpose |
+|---|---|
+| `claim_watch_reward(_content_id, _content_type, _label, _reward)` | Credits wallet, logs transaction, records watch history, increments video views and campaign views atomically. Returns `-1` if already claimed. |
+| `increment_campaign_views(_campaign_id)` | Increments `campaigns.current_views`; suspends campaign and sets `videos.is_active = false` when target is reached. |
+| `topup_campaign(_campaign_id, _extra_views)` | Adds extra views to `target_views`, sets campaign back to `"Active"`, and sets `videos.is_active = true`. |
+| `has_role(_role, _user_id)` | Returns boolean for RBAC checks. |
+
+### Promoted Video Lifecycle
+
+1. Artist fills `/promote` form → campaign row inserted + a linked `videos` row created (`is_active: true`, `duration: "Promoted"`)
+2. Viewers watch → each claim calls `claim_watch_reward` → `increment_campaign_views` auto-suspends the campaign when `current_views >= target_views`
+3. Suspension sets `campaigns.status = "Suspended"` and `videos.is_active = false` — the watch page shows "Promotion ended"
+4. Artist opens `/dashboard`, clicks "Top up views" → calls `topup_campaign` → campaign reactivated, video visible again
+
+### Pricing (`src/lib/format.ts`)
+
+```ts
+COST_PER_VIEW_FRW = 5        // artist pays
+REWARD_PER_VIEW_MGZ = 50     // viewer earns (= 5 FRW × 10)
+computeCampaignCost(views)   // views × COST_PER_VIEW_FRW
+```
+
+### Routes
+
+| Path | Purpose |
+|---|---|
+| `/` | Home feed — promoted + organic videos |
+| `/watch/$id` | Video player with MGZ reward claim button |
+| `/ads` | Ad content feed |
+| `/earn` | Earn MGZ overview |
+| `/explore` / `/trending` | Content discovery |
+| `/play` | Games |
+| `/wallet` | Balance, withdraw to MoMo/Airtel |
+| `/promote` | Create promotion campaign |
+| `/dashboard` | Artist campaign analytics + top-up |
+| `/settings` | Profile settings |
+| `/login` / `/signup` | Auth pages |
 
 ### Styling Conventions
 

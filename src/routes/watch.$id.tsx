@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Layout } from "@/components/Layout";
-import { useVideo, useVideos, useWatchHistory } from "@/lib/queries";
-import { MessageCircle, Share2, ThumbsUp, Heart, Loader2, Check } from "lucide-react";
+import { useVideo, useVideos, useWatchHistory, useCampaign, useHasSubscribed } from "@/lib/queries";
+import { MessageCircle, Share2, ThumbsUp, Heart, Loader2, Check, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fmt, initialsOf } from "@/lib/format";
+import { fmt, initialsOf, REWARD_PER_SUB_MGZ } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,10 +20,13 @@ function WatchPage() {
   const { data: video, isLoading } = useVideo(id);
   const { data: allVideos } = useVideos();
   const { data: history } = useWatchHistory();
+  const { data: campaign } = useCampaign(video?.campaign_id ?? null);
+  const { data: hasSubscribed } = useHasSubscribed(video?.campaign_id ?? null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [claiming, setClaiming] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   const recs = (allVideos || []).filter((x) => x.id !== id).slice(0, 8);
   const alreadyWatched = !!history?.find((h) => h.content_id === id && h.content_type === "video");
@@ -58,6 +61,33 @@ function WatchPage() {
       if (video.campaign_id) {
         qc.invalidateQueries({ queryKey: ["campaigns"] });
       }
+    }
+  };
+
+  const subscribe = async () => {
+    if (!user) {
+      toast.error("Please sign in to subscribe");
+      navigate({ to: "/login" });
+      return;
+    }
+    if (!video?.campaign_id) return;
+    setSubscribing(true);
+    const { data, error } = await supabase.rpc("claim_subscribe_reward", {
+      _campaign_id: video.campaign_id,
+      _label: `Subscribed to '${video.artist}'`,
+      _reward: REWARD_PER_SUB_MGZ,
+    });
+    setSubscribing(false);
+    if (error) { toast.error(error.message); return; }
+    if (data === -1) {
+      toast.info("You're already subscribed");
+    } else {
+      toast.success(`+${REWARD_PER_SUB_MGZ} MGZ for subscribing!`);
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+      qc.invalidateQueries({ queryKey: ["subscription", video.campaign_id] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["campaign", video.campaign_id] });
     }
   };
 
@@ -192,6 +222,40 @@ function WatchPage() {
               MGZ.
             </p>
           </div>
+
+          {/* Subscribe prompt — only for campaigns with sub goal */}
+          {video.campaign_id &&
+            campaign &&
+            (campaign.goal_type === "subs" || campaign.goal_type === "both") && (
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-surface p-4">
+                <div>
+                  <p className="font-semibold">Subscribe to {video.artist}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Earn an extra{" "}
+                    <span className="font-medium text-yellow-400">+{REWARD_PER_SUB_MGZ} MGZ</span>{" "}
+                    for subscribing
+                  </p>
+                </div>
+                <Button
+                  onClick={subscribe}
+                  disabled={subscribing || !!hasSubscribed}
+                  variant={hasSubscribed ? "secondary" : "default"}
+                  className="ml-4 shrink-0 rounded-full"
+                >
+                  {subscribing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : hasSubscribed ? (
+                    <>
+                      <Check className="mr-1.5 h-4 w-4" /> Subscribed
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="mr-1.5 h-4 w-4" /> Subscribe
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
         </div>
 
         <aside className="flex flex-col gap-3">

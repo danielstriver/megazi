@@ -128,6 +128,42 @@ export function useWatchHistory() {
   });
 }
 
+export function useCampaign(id: string | null) {
+  return useQuery({
+    queryKey: ["campaign", id],
+    enabled: !!id,
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useHasSubscribed(campaignId: string | null) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["subscription", campaignId, user?.id],
+    enabled: !!user && !!campaignId,
+    queryFn: async () => {
+      if (!user || !campaignId) return false;
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("campaign_id", campaignId)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+  });
+}
+
 export function useProfile() {
   const { user } = useAuth();
   return useQuery({

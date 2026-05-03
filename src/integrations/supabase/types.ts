@@ -58,9 +58,12 @@ export type Database = {
           budget_frw: number
           cover_url: string | null
           created_at: string
+          current_subs: number
           current_views: number
+          goal_type: string
           id: string
           status: string
+          target_subs: number
           target_views: number
           title: string
           updated_at: string
@@ -71,10 +74,13 @@ export type Database = {
           budget_frw: number
           cover_url?: string | null
           created_at?: string
+          current_subs?: number
           current_views?: number
+          goal_type?: string
           id?: string
           status?: string
-          target_views: number
+          target_subs?: number
+          target_views?: number
           title: string
           updated_at?: string
           user_id: string
@@ -84,9 +90,12 @@ export type Database = {
           budget_frw?: number
           cover_url?: string | null
           created_at?: string
+          current_subs?: number
           current_views?: number
+          goal_type?: string
           id?: string
           status?: string
+          target_subs?: number
           target_views?: number
           title?: string
           updated_at?: string
@@ -125,6 +134,27 @@ export type Database = {
           players?: number
           reward_megazi?: number
           title?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -301,6 +331,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_subscribe_reward: {
+        Args: {
+          _campaign_id: string
+          _label: string
+          _reward: number
+        }
+        Returns: number
+      }
       claim_watch_reward: {
         Args: {
           _content_id: string
@@ -323,6 +361,10 @@ export type Database = {
       }
       topup_campaign: {
         Args: { _campaign_id: string; _extra_views: number }
+        Returns: undefined
+      }
+      topup_campaign_subs: {
+        Args: { _campaign_id: string; _extra_subs: number }
         Returns: undefined
       }
     }

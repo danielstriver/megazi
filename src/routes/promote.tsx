@@ -5,13 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import {
+  COST_PER_SUB_FRW,
   COST_PER_VIEW_FRW,
+  REWARD_PER_SUB_MGZ,
   REWARD_PER_VIEW_MGZ,
-  computeCampaignCost,
+  computeTotalCost,
   fmt,
   getYouTubeThumbnail,
+  type GoalType,
 } from "@/lib/format";
-import { Eye, ImageIcon, Link as LinkIcon, Loader2, Zap } from "lucide-react";
+import { Eye, ImageIcon, Link as LinkIcon, Loader2, Users, Zap } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -33,28 +36,46 @@ const ALLOWED_HOSTS = [
   "www.instagram.com",
 ];
 
-const promoteSchema = z.object({
-  title: z.string().trim().min(2, "Title required").max(120),
-  videoUrl: z
-    .string()
-    .trim()
-    .url("Enter a valid URL")
-    .refine((val) => {
-      try {
-        const u = new URL(val);
-        return (
-          (u.protocol === "https:" || u.protocol === "http:") &&
-          ALLOWED_HOSTS.includes(u.hostname.toLowerCase())
-        );
-      } catch {
-        return false;
-      }
-    }, "Only YouTube, TikTok, or Instagram links are allowed"),
-  coverUrl: z.string().trim().url("Enter a valid thumbnail URL"),
-  targetViews: z.number().int().min(100, "Minimum 100 views").max(10_000_000),
-});
+const promoteSchema = z
+  .object({
+    title: z.string().trim().min(2, "Title required").max(120),
+    videoUrl: z
+      .string()
+      .trim()
+      .url("Enter a valid URL")
+      .refine((val) => {
+        try {
+          const u = new URL(val);
+          return (
+            (u.protocol === "https:" || u.protocol === "http:") &&
+            ALLOWED_HOSTS.includes(u.hostname.toLowerCase())
+          );
+        } catch {
+          return false;
+        }
+      }, "Only YouTube, TikTok, or Instagram links are allowed"),
+    coverUrl: z.string().trim().url("Enter a valid thumbnail URL"),
+    goalType: z.enum(["views", "subs", "both"]),
+    targetViews: z.number().int().min(100, "Minimum 100 views").max(10_000_000).optional(),
+    targetSubs: z.number().int().min(10, "Minimum 10 subscribers").max(1_000_000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.goalType !== "subs" && !data.targetViews) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["targetViews"], message: "Minimum 100 views" });
+    }
+    if (data.goalType !== "views" && !data.targetSubs) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["targetSubs"], message: "Minimum 10 subscribers" });
+    }
+  });
 
-const PRESETS = [1_000, 5_000, 10_000, 50_000];
+const VIEW_PRESETS = [1_000, 5_000, 10_000, 50_000];
+const SUB_PRESETS = [50, 100, 500, 1_000];
+
+const GOAL_OPTIONS: { value: GoalType; label: string; hint: string }[] = [
+  { value: "views", label: "Views", hint: `${COST_PER_VIEW_FRW} FRW/view` },
+  { value: "subs", label: "Subscribers", hint: `${COST_PER_SUB_FRW} FRW/sub` },
+  { value: "both", label: "Both", hint: "views + subs" },
+];
 
 function Promote() {
   const { user } = useAuth();
@@ -66,14 +87,16 @@ function Promote() {
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
+  const [goalType, setGoalType] = useState<GoalType>("views");
   const [targetViews, setTargetViews] = useState("10000");
+  const [targetSubs, setTargetSubs] = useState("100");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const parsedViews = Math.max(0, Number(targetViews) || 0);
-  const costFrw = computeCampaignCost(parsedViews);
+  const parsedViews = goalType !== "subs" ? Math.max(0, Number(targetViews) || 0) : 0;
+  const parsedSubs = goalType !== "views" ? Math.max(0, Number(targetSubs) || 0) : 0;
+  const costFrw = computeTotalCost(parsedViews, parsedSubs, goalType);
 
-  // Auto-fill YouTube thumbnail
   useEffect(() => {
     const thumb = getYouTubeThumbnail(videoUrl);
     if (thumb) setCoverUrl(thumb);
@@ -90,7 +113,9 @@ function Promote() {
       title,
       videoUrl,
       coverUrl,
-      targetViews: Number(targetViews),
+      goalType,
+      targetViews: goalType !== "subs" ? Number(targetViews) : undefined,
+      targetSubs: goalType !== "views" ? Number(targetSubs) : undefined,
     });
 
     if (!result.success) {
@@ -107,7 +132,6 @@ function Promote() {
     setErrors({});
     setSubmitting(true);
 
-    // 1. Insert campaign
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
       .insert({
@@ -116,8 +140,11 @@ function Promote() {
         video_url: result.data.videoUrl,
         cover_url: result.data.coverUrl,
         budget_frw: costFrw,
-        target_views: result.data.targetViews,
+        goal_type: result.data.goalType,
+        target_views: result.data.targetViews ?? 0,
+        target_subs: result.data.targetSubs ?? 0,
         current_views: 0,
+        current_subs: 0,
         status: "Active",
       })
       .select("id")
@@ -129,7 +156,6 @@ function Promote() {
       return;
     }
 
-    // 2. Insert the video into the feed linked to this campaign
     const artistName = profile?.display_name ?? user.email?.split("@")[0] ?? "Artist";
 
     const { error: videoError } = await supabase.from("videos").insert({
@@ -156,6 +182,8 @@ function Promote() {
     setVideoUrl("");
     setCoverUrl("");
     setTargetViews("10000");
+    setTargetSubs("100");
+    setGoalType("views");
   };
 
   return (
@@ -170,8 +198,7 @@ function Promote() {
         </div>
         <h1 className="mt-2 text-2xl font-semibold">Promote your track</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Set a view goal. Pay once. Your video goes live in the feed — viewers earn MGZ for
-          watching it.
+          Set a goal. Pay once. Your video goes live in the feed — viewers earn MGZ for engaging.
         </p>
 
         <div className="mt-8 space-y-5 rounded-xl border border-border bg-surface p-6">
@@ -240,61 +267,140 @@ function Promote() {
             )}
           </div>
 
-          {/* Target views */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Eye className="h-4 w-4" /> Target views
-            </Label>
-            <Input
-              type="number"
-              min={100}
-              max={10_000_000}
-              value={targetViews}
-              onChange={(e) => setTargetViews(e.target.value)}
-              className="h-10"
-              aria-invalid={!!errors.targetViews}
-            />
-            {errors.targetViews && <p className="text-xs text-destructive">{errors.targetViews}</p>}
-
-            {/* Preset chips */}
-            <div className="flex flex-wrap gap-2">
-              {PRESETS.map((n) => (
+          {/* Goal type */}
+          <div className="space-y-2">
+            <Label>Campaign goal</Label>
+            <div className="flex gap-2">
+              {GOAL_OPTIONS.map((opt) => (
                 <button
-                  key={n}
+                  key={opt.value}
                   type="button"
-                  onClick={() => setTargetViews(String(n))}
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-                    parsedViews === n
+                  onClick={() => setGoalType(opt.value)}
+                  className={`flex-1 rounded-lg border px-3 py-2.5 text-left transition ${
+                    goalType === opt.value
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background hover:bg-accent"
                   }`}
                 >
-                  {fmt(n)}
+                  <p className="text-sm font-medium">{opt.label}</p>
+                  <p className="text-xs text-muted-foreground">{opt.hint}</p>
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Target views */}
+          {goalType !== "subs" && (
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Eye className="h-4 w-4" /> Target views
+              </Label>
+              <Input
+                type="number"
+                min={100}
+                max={10_000_000}
+                value={targetViews}
+                onChange={(e) => setTargetViews(e.target.value)}
+                className="h-10"
+                aria-invalid={!!errors.targetViews}
+              />
+              {errors.targetViews && (
+                <p className="text-xs text-destructive">{errors.targetViews}</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {VIEW_PRESETS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setTargetViews(String(n))}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                      parsedViews === n
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background hover:bg-accent"
+                    }`}
+                  >
+                    {fmt(n)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Target subscribers */}
+          {goalType !== "views" && (
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4" /> Target subscribers
+              </Label>
+              <Input
+                type="number"
+                min={10}
+                max={1_000_000}
+                value={targetSubs}
+                onChange={(e) => setTargetSubs(e.target.value)}
+                className="h-10"
+                aria-invalid={!!errors.targetSubs}
+              />
+              {errors.targetSubs && (
+                <p className="text-xs text-destructive">{errors.targetSubs}</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {SUB_PRESETS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setTargetSubs(String(n))}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                      parsedSubs === n
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-background hover:bg-accent"
+                    }`}
+                  >
+                    {fmt(n)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Cost breakdown */}
-          <div className="rounded-lg border border-border bg-background p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Cost per view</span>
-              <span className="font-medium">{COST_PER_VIEW_FRW} FRW</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Viewer earns per view</span>
-              <span className="flex items-center gap-1 font-medium">
-                <Zap className="h-3.5 w-3.5 text-yellow-400" />
-                {REWARD_PER_VIEW_MGZ} MGZ
-              </span>
-            </div>
-            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+          <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+            {goalType !== "subs" && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5" /> Views — {fmt(parsedViews)} × {COST_PER_VIEW_FRW} FRW
+                </span>
+                <span className="font-medium">{fmt(parsedViews * COST_PER_VIEW_FRW)} FRW</span>
+              </div>
+            )}
+            {goalType !== "subs" && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-yellow-400" /> Viewer earns per view
+                </span>
+                <span className="font-medium">{REWARD_PER_VIEW_MGZ} MGZ</span>
+              </div>
+            )}
+            {goalType !== "views" && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Subs — {fmt(parsedSubs)} × {COST_PER_SUB_FRW} FRW
+                </span>
+                <span className="font-medium">{fmt(parsedSubs * COST_PER_SUB_FRW)} FRW</span>
+              </div>
+            )}
+            {goalType !== "views" && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-yellow-400" /> Viewer earns per sub
+                </span>
+                <span className="font-medium">{REWARD_PER_SUB_MGZ} MGZ</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
               <span className="font-semibold">Total you pay</span>
               <span className="text-lg font-bold text-primary">{fmt(costFrw)} FRW</span>
             </div>
-            <p className="mt-1 text-right text-xs text-muted-foreground">
-              {fmt(parsedViews)} views × {COST_PER_VIEW_FRW} FRW/view
-            </p>
           </div>
 
           <Button
@@ -320,7 +426,10 @@ function Promote() {
                   <div>
                     <p className="font-medium">{c.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {fmt(Number(c.budget_frw))} FRW · {fmt(Number(c.target_views))} target views
+                      {fmt(Number(c.budget_frw))} FRW ·{" "}
+                      {c.goal_type !== "subs" && `${fmt(Number(c.target_views))} views`}
+                      {c.goal_type === "both" && " · "}
+                      {c.goal_type !== "views" && `${fmt(Number(c.target_subs))} subs`}
                     </p>
                   </div>
                   <span
