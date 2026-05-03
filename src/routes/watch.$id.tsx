@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Layout } from "@/components/Layout";
 import { useVideo, useVideos, useWatchHistory, useCampaign, useHasSubscribed } from "@/lib/queries";
-import { MessageCircle, Share2, ThumbsUp, Heart, Loader2, Check, Bell } from "lucide-react";
+import { MessageCircle, Share2, ThumbsUp, Heart, Loader2, Check, Bell, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fmt, initialsOf, REWARD_PER_SUB_MGZ } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,6 +45,10 @@ function WatchPage() {
   const showSubscribeSection =
     !!video?.campaign_id &&
     (video.goal_type === "subs" || video.goal_type === "both");
+
+  const showWatchSection =
+    !!video?.campaign_id &&
+    (video.goal_type === "views" || video.goal_type === "both");
 
   const claim = async () => {
     if (!user) {
@@ -239,6 +243,48 @@ function WatchPage() {
               MGZ.
             </p>
           </div>
+
+          {/* Watch & earn card — only for campaigns with a views goal */}
+          {showWatchSection && (
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-surface p-4">
+              <div>
+                <p className="font-semibold">Watch this video</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {viewsGoalMet ? (
+                    "Views goal reached for this campaign."
+                  ) : alreadyWatched ? (
+                    <>
+                      You earned{" "}
+                      <span className="font-medium text-yellow-400">{video.reward_megazi} MGZ</span>{" "}
+                      for watching
+                    </>
+                  ) : (
+                    <>
+                      Earn{" "}
+                      <span className="font-medium text-yellow-400">+{video.reward_megazi} MGZ</span>{" "}
+                      for watching
+                    </>
+                  )}
+                </p>
+              </div>
+              <Button
+                onClick={claim}
+                disabled={claiming || alreadyWatched || viewsGoalMet}
+                variant={alreadyWatched || viewsGoalMet ? "secondary" : "default"}
+                className="ml-4 shrink-0 rounded-full"
+              >
+                {claiming ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : alreadyWatched ? (
+                  <><Check className="mr-1.5 h-4 w-4" /> Watched</>
+                ) : viewsGoalMet ? (
+                  <><Check className="mr-1.5 h-4 w-4" /> Goal met</>
+                ) : (
+                  <><PlayCircle className="mr-1.5 h-4 w-4" /> Watch</>
+                )}
+              </Button>
+            </div>
+          )}
 
           {/* Subscribe prompt — only for campaigns with a sub goal */}
           {showSubscribeSection && (
