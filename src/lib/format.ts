@@ -30,14 +30,23 @@ export const computeTotalCost = (targetViews: number, targetSubs: number, goalTy
   return computeCampaignCost(targetViews) + computeSubCost(targetSubs);
 };
 
-export function getYouTubeThumbnail(url: string): string | null {
+function extractYouTubeId(url: string): string | null {
   try {
     const u = new URL(url);
-    let id: string | null = null;
-    if (u.hostname.includes("youtube.com")) id = u.searchParams.get("v");
-    else if (u.hostname === "youtu.be") id = u.pathname.slice(1).split("?")[0];
-    return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null;
+    if (u.hostname.includes("youtube.com")) return u.searchParams.get("v");
+    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("?")[0];
+    return null;
   } catch {
     return null;
   }
+}
+
+export function getYouTubeThumbnail(url: string): string | null {
+  const id = extractYouTubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null;
+}
+
+export function getYouTubeEmbedUrl(url: string): string | null {
+  const id = extractYouTubeId(url);
+  return id ? `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` : null;
 }

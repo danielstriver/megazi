@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { useVideo, useVideos, useWatchHistory, useCampaign, useHasSubscribed } from "@/lib/queries";
 import { MessageCircle, Share2, ThumbsUp, Heart, Loader2, Check, Bell, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fmt, initialsOf, REWARD_PER_SUB_MGZ } from "@/lib/format";
+import { fmt, initialsOf, REWARD_PER_SUB_MGZ, getYouTubeEmbedUrl } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,7 @@ function WatchPage() {
   const qc = useQueryClient();
   const [claiming, setClaiming] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [playing, setPlaying] = useState(false);
 
   const recs = (allVideos || []).filter((x) => x.id !== id).slice(0, 8);
   const alreadyWatched = !!history?.find((h) => h.content_id === id && h.content_type === "video");
@@ -157,37 +158,51 @@ function WatchPage() {
     );
   }
 
+  const embedUrl = campaign?.video_url ? getYouTubeEmbedUrl(campaign.video_url) : null;
+
   return (
     <Layout>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div>
           <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
-            <img
-              src={video.cover_url}
-              alt={video.title}
-              className="absolute inset-0 h-full w-full object-cover opacity-80"
-            />
-            {video.campaign_id && (
-              <span className="absolute left-3 top-3 rounded bg-primary/90 px-2 py-0.5 text-xs font-semibold text-white">
-                Promoted
-              </span>
-            )}
-            <div className="absolute inset-0 grid place-items-center bg-black/40">
-              <button
-                onClick={claim}
-                disabled={claiming}
-                className="grid h-20 w-20 place-items-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary/90"
-                aria-label="Play and claim reward"
-              >
-                {claiming ? (
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+            {playing && embedUrl ? (
+              <iframe
+                src={embedUrl}
+                title={video.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full"
+              />
+            ) : (
+              <>
+                <img
+                  src={video.cover_url}
+                  alt={video.title}
+                  className="absolute inset-0 h-full w-full object-cover opacity-80"
+                />
+                {video.campaign_id && (
+                  <span className="absolute left-3 top-3 rounded bg-primary/90 px-2 py-0.5 text-xs font-semibold text-white">
+                    Promoted
+                  </span>
                 )}
-              </button>
-            </div>
+                <div className="absolute inset-0 grid place-items-center bg-black/40">
+                  <button
+                    onClick={() => (embedUrl ? setPlaying(true) : claim())}
+                    disabled={claiming}
+                    className="grid h-20 w-20 place-items-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary/90"
+                    aria-label="Play video"
+                  >
+                    {claiming ? (
+                      <Loader2 className="h-8 w-8 animate-spin" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <h1 className="mt-4 text-xl font-semibold">{video.title}</h1>
