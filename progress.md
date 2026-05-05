@@ -1,26 +1,26 @@
-# MEGAZI — Progress & Testing Guide
+# MEGAZI — Progress & Handoff Guide
 
 ## Live URL
 **https://megazi.danielhustler-hacker.workers.dev**
 
-Hosted on **Cloudflare Workers** (see [Why Cloudflare, not Vercel?](#why-cloudflare-not-vercel) below).
+Hosted on **Cloudflare Workers**. See [Deployment](#deployment) for deploy steps.
 
 ---
 
-## What was built
+## What's been built
 
 ### 1. Auth — frictionless signup
-Email confirmation gate removed. Users sign up, get logged in immediately, and receive a welcome toast. The `profiles` table is populated with their display name on signup so it shows correctly in campaigns and the dashboard.
+Email confirmation is disabled so users sign up and are logged in immediately. On signup, the `profiles` table is populated with their display name so it shows correctly across the app.
 
-**Files:** `src/routes/signup.tsx`
-**Supabase step:** Authentication → Providers → Email → disable **Confirm email**
+**Supabase step required:** Authentication → Providers → Email → disable **Confirm email**
 
 ---
 
 ### 2. Promoted video lifecycle
-Artists promote a track by creating a campaign on `/promote`. The system creates both a `campaigns` row and a linked `videos` row that appears live in the home feed.
+Artists promote a track on `/promote`. The system creates a `campaigns` row and a linked `videos` row that appears live in the home feed.
 
 **Pricing:**
+
 | | |
 |---|---|
 | Artist pays | 5 FRW per view |
@@ -32,14 +32,13 @@ Artists promote a track by creating a campaign on `/promote`. The system creates
 3. Target reached → `status = Suspended`, `is_active = false`, video hidden from feed
 4. Artist tops up from `/dashboard` → `topup_campaign` RPC reactivates campaign and video
 
-**Files:** `src/routes/promote.tsx`, `src/routes/dashboard.tsx`, `src/routes/watch.$id.tsx`
-
 ---
 
 ### 3. Subscription system
-Artists can now set a campaign goal of **Views**, **Subscribers**, or **Both**.
+Campaign goals support **Views**, **Subscribers**, or **Both**.
 
 **Pricing:**
+
 | | |
 |---|---|
 | Artist pays | 5 FRW per view · 20 FRW per subscriber |
@@ -48,15 +47,11 @@ Artists can now set a campaign goal of **Views**, **Subscribers**, or **Both**.
 **Goal logic:**
 - **Views only** — suspends when view target is hit
 - **Subs only** — suspends when subscriber target is hit
-- **Both** — each goal button disables independently once its target is met; the video is only suspended (and hidden from the feed) when **both** targets are reached
+- **Both** — each earn button disables independently; video only fully suspends when **both** targets are met
 
-**On the watch page** (`/watch/$id`), promoted videos show:
-- A **"Watch this video / Earn +50 MGZ"** card — visible for Views and Both campaigns
-- A **"Subscribe to {artist} / Earn +150 MGZ"** card — visible for Subs and Both campaigns
+On `/watch/$id`, promoted videos show a **Watch & earn** card (Views/Both campaigns) and a **Subscribe & earn** card (Subs/Both campaigns). Both flip to a confirmed state once the viewer has already claimed that reward or the goal is globally met.
 
-Both cards show a disabled/confirmed state once the viewer has already claimed that reward, or once that goal's global target is met.
-
-**New Supabase objects required:**
+**Supabase objects added:**
 ```sql
 -- Columns added to campaigns
 goal_type, target_subs, current_subs
@@ -64,20 +59,34 @@ goal_type, target_subs, current_subs
 -- New table
 subscriptions (user_id, campaign_id)
 
--- New / updated RPCs
+-- RPCs
 claim_subscribe_reward()
 topup_campaign_subs()
-increment_campaign_views()   -- updated for goal_type-aware suspension
+increment_campaign_views()   -- updated for goal-type-aware suspension
 ```
 
-**Files:** `src/routes/promote.tsx`, `src/routes/watch.$id.tsx`, `src/routes/dashboard.tsx`, `src/lib/queries.ts`, `src/lib/format.ts`
+---
+
+### 4. Video playback
+Videos on `/watch/$id` now actually play. Clicking the thumbnail overlay loads a **YouTube iframe embed** in place of the cover image. The earn/subscribe reward buttons below are unaffected — they work independently of playback.
+
+- Promoted videos pull their YouTube URL from `campaigns.video_url`
+- Organic (non-promoted) videos without a URL keep the cover-image fallback; clicking the overlay still triggers the reward claim
+
+---
+
+### 5. Auth redirect & error visibility fix
+Two bugs on the login and signup pages were resolved:
+
+- **Silent errors** — the login and signup pages don't use the shared `Layout`, so `<Toaster>` was never mounted. Any auth error (wrong password, rate limit, unconfirmed email) disappeared silently. Fixed by mounting `<Toaster>` directly on both pages.
+- **Broken redirect in dev** — TanStack Start's SSR-aware router mishandled `navigate()` calls made immediately after an async auth operation in Vite dev mode (production on Cloudflare worked fine). Fixed by replacing `navigate()` with `window.location.href` so the post-auth redirect is a clean browser navigation in all environments.
 
 ---
 
 ## How to test locally
 
 ```bash
-npm run dev   # http://localhost:5173
+npm run dev   # http://localhost:8080
 ```
 
 ### Artist flow
@@ -87,8 +96,8 @@ npm run dev   # http://localhost:5173
 
 ### Viewer flow (open an incognito window, sign up as a second account)
 1. Home page — the promoted video appears in the feed
-2. Open the video — you see a **Watch** card and a **Subscribe** card below the description
-3. Click **Watch** → +50 MGZ added, button flips to "Watched ✓"
+2. Open the video — click the thumbnail to play it in the YouTube embed
+3. Click **Watch** below the video → +50 MGZ added, button flips to "Watched ✓"
 4. Click **Subscribe** → +150 MGZ added, button flips to "Subscribed ✓"
 5. Check `/wallet` — both rewards appear in transaction history
 
@@ -96,23 +105,46 @@ npm run dev   # http://localhost:5173
 1. With a second viewer account, claim both rewards again
 2. After the 2nd view the **Watch** card shows "Views goal met" (disabled) for all future viewers
 3. After the 2nd sub the campaign fully suspends — the video disappears from the home feed
-4. Back on the artist dashboard: progress bars hit 100%, status badge turns red, **Top up views** and **Top up subscribers** inputs appear
+4. Back on the artist dashboard: progress bars hit 100%, status badge turns red, **Top up** inputs appear
 5. Top up → campaign reactivates → video reappears in the feed
 
 ---
 
-## Why Cloudflare, not Vercel?
+## What to work on next
 
-The project was scaffolded with **Lovable** which uses `@lovable.dev/vite-tanstack-config`. That build config targets **Cloudflare Workers** by default — the build output includes a `worker-entry.js` and a generated `wrangler.json`, both of which are Cloudflare-specific.
+### Priority 1 — Auth UX polish
+The auth flow works but feels bare. Key improvements:
 
-Deploying to Vercel would require swapping in a different TanStack Start adapter (the Vercel adapter), which means touching the framework config and potentially the server entry point. There is no benefit to doing that swap — Cloudflare Workers has a generous free tier, global edge distribution, and the project deploys with zero config changes using:
+- **Success feedback on login** — show a "Welcome back, [name]!" toast after sign-in so users know something happened
+- **Loading state on page entry** — while the auth session is being resolved, protected UI flickers. Add a full-page skeleton or spinner so it doesn't feel broken
+- **Sign-out confirmation** — currently silent; add a brief toast ("You've been signed out")
+- **Password reset flow** — the "Forgot?" button on `/login` is a dead link. Wire it up to Supabase's `resetPasswordForEmail` and add a `/reset-password` route to handle the callback
+- **Better error messages** — Supabase error strings like "Invalid login credentials" are technical. Map them to friendlier copy ("Wrong email or password — try again")
+
+### Priority 2 — Organic video support
+Non-promoted videos have no `video_url` in the database, so they can't play. Options:
+- Add a `video_url` column to the `videos` table and seed it for existing records
+- Or restrict the home feed to promoted videos only until organic upload is built out
+
+### Priority 3 — Artist dashboard improvements
+- Progress bars for views and subs goals are shown, but there's no historical chart (views over time)
+- No notification when a campaign suspends — artists have to check manually
+- Top-up UX could prompt with a suggested amount based on remaining target
+
+### Priority 4 — Wallet & withdrawals
+- The withdrawal form on `/wallet` exists but is not connected to MTN MoMo / Airtel APIs
+- Need to define minimum withdrawal threshold and fee structure
+
+---
+
+## Deployment
 
 ```bash
 npm run build
 cd dist/server && npx wrangler deploy
 ```
 
-**Secrets are already set** on the worker (Supabase URL + anon key). Future deploys just need those two commands — no secret management needed again unless they change.
+Supabase secrets are already set on the Cloudflare Worker — no re-configuration needed on subsequent deploys unless the Supabase project changes.
 
 ---
 

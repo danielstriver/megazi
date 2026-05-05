@@ -40,7 +40,7 @@ src/
 
 ### Data Flow
 
-All server state goes through **React Query hooks** in `src/lib/queries.ts` (`useVideos`, `useVideo(id)`, `useWalletBalance`, `useCampaigns`, etc.). These call the Supabase client directly from the browser.
+All server state goes through **React Query hooks** in `src/lib/queries.ts`. These call the Supabase client directly from the browser. Key hooks: `useVideos`, `useVideo(id)`, `useAds`, `useGames`, `useWalletBalance`, `useTransactions`, `useCampaigns`, `useCampaign(id)`, `useWatchHistory`, `useHasSubscribed(campaignId)`, `useProfile`.
 
 The root route (`src/routes/__root.tsx`) wraps the app in `QueryClientProvider` (30s staleTime, no refetch on window focus) and `AuthProvider` from `src/lib/auth.tsx`.
 
@@ -59,13 +59,17 @@ RBAC uses the `user_roles` table and the `has_role(_role, _user_id)` Supabase RP
 
 ### Database Schema (Supabase)
 
-Core tables: `videos`, `ads`, `games`, `campaigns`, `wallets`, `transactions`, `profiles`, `watch_history`, `user_roles`. TypeScript types are auto-generated at `src/integrations/supabase/types.ts`.
+Core tables: `videos`, `ads`, `games`, `campaigns`, `wallets`, `transactions`, `profiles`, `watch_history`, `user_roles`, `subscriptions`. TypeScript types are auto-generated at `src/integrations/supabase/types.ts`.
 
 Key columns:
 - `videos.campaign_id` — FK to `campaigns.id`; present only on promoted videos
-- `videos.is_active` — set to `false` when the campaign is suspended (target views reached)
+- `videos.is_active` — set to `false` when the campaign is suspended
+- `videos.goal_type` — mirrors `campaigns.goal_type`; controls which earn cards show on the watch page
 - `campaigns.status` — `"Active"` | `"Suspended"` | `"Completed"`
+- `campaigns.goal_type` — `"views"` | `"subs"` | `"both"`
 - `campaigns.current_views` / `campaigns.target_views` — view progress tracking
+- `campaigns.current_subs` / `campaigns.target_subs` — subscriber progress tracking
+- `subscriptions.user_id` / `subscriptions.campaign_id` — one row per viewer-campaign subscription
 
 ### Supabase RPC Functions
 
@@ -74,23 +78,40 @@ Business logic that must be atomic lives in Postgres RPC functions; call them vi
 | Function | Purpose |
 |---|---|
 | `claim_watch_reward(_content_id, _content_type, _label, _reward)` | Credits wallet, logs transaction, records watch history, increments video views and campaign views atomically. Returns `-1` if already claimed. |
-| `increment_campaign_views(_campaign_id)` | Increments `campaigns.current_views`; suspends campaign and sets `videos.is_active = false` when target is reached. |
-| `topup_campaign(_campaign_id, _extra_views)` | Adds extra views to `target_views`, sets campaign back to `"Active"`, and sets `videos.is_active = true`. |
+| `claim_subscribe_reward(_campaign_id, _label, _reward)` | Credits wallet, logs transaction, records subscription, increments `current_subs`. Returns `-1` if already subscribed. |
+| `increment_campaign_views(_campaign_id)` | Increments `campaigns.current_views`; suspends campaign (goal-type aware) and sets `videos.is_active = false` when both targets are met. |
+| `topup_campaign(_campaign_id, _extra_views)` | Adds extra views to `target_views`, sets campaign back to `"Active"`, sets `videos.is_active = true`. |
+| `topup_campaign_subs(_campaign_id, _extra_subs)` | Adds extra subs to `target_subs`, reactivates campaign and video. |
 | `has_role(_role, _user_id)` | Returns boolean for RBAC checks. |
+
+### Campaign Goal Types
+
+Campaigns support three goal types (`GoalType = "views" | "subs" | "both"`), controlled by `campaigns.goal_type` and `videos.goal_type`:
+
+- **views** — suspended when `current_views >= target_views`
+- **subs** — suspended when `current_subs >= target_subs`
+- **both** — each earn button disables independently; video only suspends when **both** targets are met
+
+The `/watch/$id` page conditionally renders a "Watch & earn" card (for `views`/`both`) and a "Subscribe & earn" card (for `subs`/`both`).
 
 ### Promoted Video Lifecycle
 
 1. Artist fills `/promote` form → campaign row inserted + a linked `videos` row created (`is_active: true`, `duration: "Promoted"`)
-2. Viewers watch → each claim calls `claim_watch_reward` → `increment_campaign_views` auto-suspends the campaign when `current_views >= target_views`
+2. Viewers watch/subscribe → `claim_watch_reward` / `claim_subscribe_reward` RPCs fire → `increment_campaign_views` auto-suspends when goal(s) met
 3. Suspension sets `campaigns.status = "Suspended"` and `videos.is_active = false` — the watch page shows "Promotion ended"
-4. Artist opens `/dashboard`, clicks "Top up views" → calls `topup_campaign` → campaign reactivated, video visible again
+4. Artist opens `/dashboard`, tops up views or subs → `topup_campaign` / `topup_campaign_subs` → campaign reactivated, video visible again
 
 ### Pricing (`src/lib/format.ts`)
 
 ```ts
-COST_PER_VIEW_FRW = 5        // artist pays
-REWARD_PER_VIEW_MGZ = 50     // viewer earns (= 5 FRW × 10)
+COST_PER_VIEW_FRW = 5        // artist pays per view
+REWARD_PER_VIEW_MGZ = 50     // viewer earns per view (= 5 FRW × 10)
+COST_PER_SUB_FRW = 20        // artist pays per subscriber
+REWARD_PER_SUB_MGZ = 150     // viewer earns per subscription
 computeCampaignCost(views)   // views × COST_PER_VIEW_FRW
+computeSubCost(subs)         // subs × COST_PER_SUB_FRW
+computeTotalCost(views, subs, goalType)  // combined cost
+getYouTubeThumbnail(url)     // extract maxresdefault.jpg from YouTube URL
 ```
 
 ### Routes
@@ -108,6 +129,19 @@ computeCampaignCost(views)   // views × COST_PER_VIEW_FRW
 | `/dashboard` | Artist campaign analytics + top-up |
 | `/settings` | Profile settings |
 | `/login` / `/signup` | Auth pages |
+
+### Deployment
+
+Hosted on **Cloudflare Workers** (configured in `wrangler.jsonc`). Build output is a Worker entry — not a standard Node server.
+
+```bash
+npm run build
+cd dist/server && npx wrangler deploy
+```
+
+Supabase secrets (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) are set on the worker and do not need to be re-added on subsequent deploys. Live URL: `https://megazi.danielhustler-hacker.workers.dev`.
+
+Do **not** attempt a Vercel deploy without first swapping the TanStack Start adapter — the current build config is Cloudflare-specific.
 
 ### Styling Conventions
 
