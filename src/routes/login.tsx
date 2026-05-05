@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -49,11 +50,12 @@ function LoginPage() {
       return;
     }
     toast.success("Welcome back");
-    navigate({ to: "/" });
+    window.location.href = "/";
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <Toaster />
       <div className="w-full max-w-sm">
         <div className="mb-8 flex justify-center"><Logo /></div>
         <h1 className="text-center text-2xl font-semibold">Sign in</h1>
