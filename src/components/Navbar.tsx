@@ -12,20 +12,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { useWalletBalance } from "@/lib/queries";
 import { initialsOf } from "@/lib/format";
+import { toast } from "sonner";
 
 export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const { data: balance = 0 } = useWalletBalance();
-  const navigate = useNavigate();
   const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Guest";
 
   const handleSignOut = async () => {
     await signOut();
-    navigate({ to: "/login" });
+    toast.success("You've been signed out.");
+    setTimeout(() => { window.location.href = "/login"; }, 800);
   };
 
   return (
@@ -52,7 +53,7 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
           </div>
         </div>
 
-        {user && (
+        {!loading && user && (
           <Link
             to="/wallet"
             className="hidden items-center gap-2 rounded-full bg-surface px-3 py-1.5 text-sm transition hover:bg-accent md:flex"
@@ -66,7 +67,9 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
           <Bell className="h-5 w-5" />
         </Button>
 
-        {user ? (
+        {loading ? (
+          <div className="h-8 w-8 rounded-full bg-surface animate-pulse" />
+        ) : user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="rounded-full outline-none focus:ring-2 focus:ring-ring">

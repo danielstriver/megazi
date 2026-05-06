@@ -45,3 +45,18 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
+
+export function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials") || m.includes("invalid email or password"))
+    return "Wrong email or password — please try again.";
+  if (m.includes("email not confirmed"))
+    return "Please confirm your email before signing in.";
+  if (m.includes("too many requests") || m.includes("rate limit"))
+    return "Too many attempts — wait a moment and try again.";
+  if (m.includes("user already registered") || m.includes("already been registered"))
+    return "An account with this email already exists.";
+  if (m.includes("password should be at least") || m.includes("password is too short"))
+    return "Password must be at least 8 characters.";
+  return message;
+}

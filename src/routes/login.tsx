@@ -8,7 +8,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, friendlyAuthError } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
@@ -39,18 +39,40 @@ function LoginPage() {
         const k = i.path[0] as "email" | "password";
         if (!f[k]) f[k] = i.message;
       }
-      setErrors(f); return;
+      setErrors(f);
+      return;
     }
     setErrors({});
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setSubmitting(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(friendlyAuthError(error.message));
       return;
     }
-    toast.success("Welcome back");
+    const name =
+      data.user?.user_metadata?.display_name ||
+      data.user?.email?.split("@")[0] ||
+      "there";
+    toast.success(`Welcome back, ${name}!`);
     window.location.href = "/";
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email || !z.string().email().safeParse(email).success) {
+      toast.error("Enter your email in the field above first.");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error(friendlyAuthError(error.message));
+      return;
+    }
+    toast.success("Check your inbox — reset link sent.");
   };
 
   return (
@@ -59,20 +81,45 @@ function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex justify-center"><Logo /></div>
         <h1 className="text-center text-2xl font-semibold">Sign in</h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">Use your email and password to continue.</p>
+        <p className="mt-1 text-center text-sm text-muted-foreground">
+          Use your email and password to continue.
+        </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <Label className="text-xs" htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@megazi.app" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 h-10" aria-invalid={!!errors.email} />
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@megazi.app"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 h-10"
+              aria-invalid={!!errors.email}
+            />
             {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
           </div>
           <div>
             <div className="flex items-center justify-between">
               <Label className="text-xs" htmlFor="pw">Password</Label>
-              <button type="button" className="text-xs text-muted-foreground hover:underline">Forgot?</button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleForgotPassword}
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
             </div>
-            <Input id="pw" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-10" aria-invalid={!!errors.password} />
+            <Input
+              id="pw"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 h-10"
+              aria-invalid={!!errors.password}
+            />
             {errors.password && <p className="mt-1 text-xs text-destructive">{errors.password}</p>}
           </div>
           <Button type="submit" disabled={submitting} className="h-10 w-full">
@@ -81,7 +128,10 @@ function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          New here? <Link to="/signup" className="font-medium text-foreground hover:underline">Create account</Link>
+          New here?{" "}
+          <Link to="/signup" className="font-medium text-foreground hover:underline">
+            Create account
+          </Link>
         </p>
       </div>
     </div>

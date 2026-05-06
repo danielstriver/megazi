@@ -8,7 +8,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, friendlyAuthError } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/signup")({ component: SignupPage });
@@ -28,7 +28,9 @@ function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { if (user) navigate({ to: "/" }); }, [user, navigate]);
+  useEffect(() => {
+    if (user) navigate({ to: "/" });
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +41,8 @@ function SignupPage() {
         const k = i.path[0] as string;
         if (!f[k]) f[k] = i.message;
       }
-      setErrors(f); return;
+      setErrors(f);
+      return;
     }
     setErrors({});
     setSubmitting(true);
@@ -48,7 +51,11 @@ function SignupPage() {
       password,
       options: { data: { display_name: displayName } },
     });
-    if (error) { setSubmitting(false); toast.error(error.message); return; }
+    if (error) {
+      setSubmitting(false);
+      toast.error(friendlyAuthError(error.message));
+      return;
+    }
 
     if (data.user) {
       await supabase
@@ -57,7 +64,7 @@ function SignupPage() {
     }
 
     setSubmitting(false);
-    toast.success("Welcome to MEGAZI! You're all set.");
+    toast.success(`Welcome to MEGAZI, ${displayName}! You're all set.`);
     window.location.href = "/";
   };
 
@@ -67,23 +74,49 @@ function SignupPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex justify-center"><Logo /></div>
         <h1 className="text-center text-2xl font-semibold">Create your account</h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">Start earning MEGAZI in under a minute.</p>
+        <p className="mt-1 text-center text-sm text-muted-foreground">
+          Start earning MEGAZI in under a minute.
+        </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <Label className="text-xs">Display name</Label>
-            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Kayz Reign" className="mt-1 h-10" aria-invalid={!!errors.displayName} />
-            {errors.displayName && <p className="mt-1 text-xs text-destructive">{errors.displayName}</p>}
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Kayz Reign"
+              className="mt-1 h-10"
+              aria-invalid={!!errors.displayName}
+            />
+            {errors.displayName && (
+              <p className="mt-1 text-xs text-destructive">{errors.displayName}</p>
+            )}
           </div>
           <div>
             <Label className="text-xs">Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@megazi.app" className="mt-1 h-10" aria-invalid={!!errors.email} />
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@megazi.app"
+              className="mt-1 h-10"
+              aria-invalid={!!errors.email}
+            />
             {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
           </div>
           <div>
             <Label className="text-xs">Password</Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="mt-1 h-10" aria-invalid={!!errors.password} />
-            {errors.password && <p className="mt-1 text-xs text-destructive">{errors.password}</p>}
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              className="mt-1 h-10"
+              aria-invalid={!!errors.password}
+            />
+            {errors.password && (
+              <p className="mt-1 text-xs text-destructive">{errors.password}</p>
+            )}
           </div>
 
           <Button type="submit" disabled={submitting} className="h-10 w-full">
@@ -92,7 +125,10 @@ function SignupPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account? <Link to="/login" className="font-medium text-foreground hover:underline">Sign in</Link>
+          Already have an account?{" "}
+          <Link to="/login" className="font-medium text-foreground hover:underline">
+            Sign in
+          </Link>
         </p>
       </div>
     </div>
