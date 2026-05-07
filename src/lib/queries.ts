@@ -10,9 +10,70 @@ export function useVideos() {
         .from("videos")
         .select("*")
         .eq("is_active", true)
+        .not("campaign_id", "is", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+export function useVideoSearch(query: string) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: ["videoSearch", q],
+    enabled: q.length >= 2,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("*")
+        .or(`title.ilike.%${q}%,artist.ilike.%${q}%`)
+        .eq("is_active", true)
+        .not("campaign_id", "is", null)
+        .order("views", { ascending: false })
+        .limit(24);
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+function buildDays() {
+  return Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    const date = d.toISOString().slice(0, 10);
+    return { date, label: date.slice(5), views: 0 };
+  });
+}
+
+export function useCampaignDailyViews(campaignId: string) {
+  return useQuery({
+    queryKey: ["campaignDailyViews", campaignId],
+    queryFn: async () => {
+      const days = buildDays();
+      const { data: vid } = await supabase
+        .from("videos")
+        .select("id")
+        .eq("campaign_id", campaignId)
+        .maybeSingle();
+      if (!vid) return days;
+
+      const since = new Date();
+      since.setDate(since.getDate() - 13);
+      const { data: history } = await supabase
+        .from("watch_history")
+        .select("created_at")
+        .eq("content_id", vid.id)
+        .eq("content_type", "video")
+        .gte("created_at", since.toISOString());
+
+      const counts: Record<string, number> = {};
+      for (const h of history ?? []) {
+        const day = h.created_at.slice(0, 10);
+        counts[day] = (counts[day] || 0) + 1;
+      }
+      return days.map((d) => ({ ...d, views: counts[d.date] || 0 }));
     },
   });
 }

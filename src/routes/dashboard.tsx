@@ -4,21 +4,47 @@ import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Activity, Eye, Loader2, Plus, Users, Wallet, Zap } from "lucide-react";
-import { useCampaigns } from "@/lib/queries";
+import { Activity, AlertTriangle, Eye, Loader2, Plus, Users, Zap } from "lucide-react";
+import { useCampaigns, useCampaignDailyViews } from "@/lib/queries";
 import { COST_PER_SUB_FRW, COST_PER_VIEW_FRW, fmt } from "@/lib/format";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { BarChart, Bar, ResponsiveContainer, Tooltip } from "recharts";
 
 export const Route = createFileRoute("/dashboard")({ component: Dashboard });
 
 type Campaign = NonNullable<ReturnType<typeof useCampaigns>["data"]>[number];
 
+function ViewsChart({ campaignId }: { campaignId: string }) {
+  const { data = [] } = useCampaignDailyViews(campaignId);
+  const hasData = data.some((d) => d.views > 0);
+  return (
+    <div className="mt-3">
+      <p className="mb-1.5 text-xs text-muted-foreground">Daily views — last 14 days</p>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height={52}>
+          <BarChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }} barCategoryGap="25%">
+            <Bar dataKey="views" fill="#ff0033" radius={[2, 2, 0, 0]} />
+            <Tooltip
+              contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 6, fontSize: 11 }}
+              labelFormatter={(l) => l}
+              formatter={(v) => [v, "views"]}
+              cursor={{ fill: "rgba(255,255,255,0.05)" }}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : (
+        <p className="text-xs text-muted-foreground/50">No view data yet.</p>
+      )}
+    </div>
+  );
+}
+
 function TopUpForm({ campaign, onDone }: { campaign: Campaign; onDone: () => void }) {
-  const [extraViews, setExtraViews] = useState("5000");
-  const [extraSubs, setExtraSubs] = useState("100");
+  const [extraViews, setExtraViews] = useState(String(campaign.target_views));
+  const [extraSubs, setExtraSubs] = useState(String(campaign.target_subs));
   const [loading, setLoading] = useState(false);
   const qc = useQueryClient();
 
@@ -104,6 +130,7 @@ function Dashboard() {
   const totalViews = (campaigns || []).reduce((s, c) => s + Number(c.current_views), 0);
   const totalSubs = (campaigns || []).reduce((s, c) => s + Number(c.current_subs), 0);
   const active = (campaigns || []).filter((c) => c.status === "Active").length;
+  const suspended = (campaigns || []).filter((c) => c.status === "Suspended");
 
   return (
     <Layout>
@@ -135,6 +162,18 @@ function Dashboard() {
           hint={`${fmt(totalBudget * 10)} MGZ rewarded`}
         />
       </div>
+
+      {suspended.length > 0 && (
+        <div className="mt-6 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <p className="text-sm">
+            <span className="font-medium text-destructive">
+              {suspended.length === 1 ? "1 campaign suspended" : `${suspended.length} campaigns suspended`}
+            </span>
+            <span className="ml-1.5 text-muted-foreground">— promotion targets reached. Top up to resume.</span>
+          </p>
+        </div>
+      )}
 
       <h2 className="mt-10 mb-4 text-lg font-semibold">My campaigns</h2>
       {!campaigns || campaigns.length === 0 ? (
@@ -219,6 +258,8 @@ function Dashboard() {
                   )}
 
 
+                  <ViewsChart campaignId={c.id} />
+
                   {isSuspended && (
                     <>
                       <p className="text-xs text-destructive">
@@ -233,7 +274,7 @@ function Dashboard() {
                           className="w-full"
                           onClick={() => setToppingUp(c.id)}
                         >
-                          Top up views
+                          Top up campaign
                         </Button>
                       )}
                     </>

@@ -52,6 +52,12 @@ Routes are auto-registered via `src/routeTree.gen.ts` (do not edit manually).
 
 RBAC uses the `user_roles` table and the `has_role(_role, _user_id)` Supabase RPC. Enum: `app_role = "admin" | "user"`.
 
+`friendlyAuthError(message)` in `src/lib/auth.tsx` maps raw Supabase error strings to user-facing copy — use it in all auth forms.
+
+**Known gotchas:**
+- `navigate()` from `useNavigate()` is unreliable after async auth operations in TanStack Start's Vite dev mode (SSR hydration race). Use `window.location.href` for post-auth redirects instead.
+- `<Toaster>` is only mounted inside `Layout`. Auth pages (`/login`, `/signup`, `/reset-password`) do **not** use `Layout`, so they must mount `<Toaster />` directly or `toast.*()` calls will silently do nothing.
+
 ### Supabase Clients
 
 - `src/integrations/supabase/client.ts` — browser client using anon key (`VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`). Subject to RLS. Use this everywhere in routes and components.
@@ -112,6 +118,7 @@ computeCampaignCost(views)   // views × COST_PER_VIEW_FRW
 computeSubCost(subs)         // subs × COST_PER_SUB_FRW
 computeTotalCost(views, subs, goalType)  // combined cost
 getYouTubeThumbnail(url)     // extract maxresdefault.jpg from YouTube URL
+getYouTubeEmbedUrl(url)      // build autoplay iframe src; returns null for non-YouTube URLs
 ```
 
 ### Routes
@@ -129,6 +136,7 @@ getYouTubeThumbnail(url)     // extract maxresdefault.jpg from YouTube URL
 | `/dashboard` | Artist campaign analytics + top-up |
 | `/settings` | Profile settings |
 | `/login` / `/signup` | Auth pages |
+| `/reset-password` | Password reset callback (exchanges Supabase code, updates password) |
 
 ### Deployment
 

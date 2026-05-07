@@ -12,16 +12,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { useWalletBalance } from "@/lib/queries";
 import { initialsOf } from "@/lib/format";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
   const { user, signOut, loading } = useAuth();
   const { data: balance = 0 } = useWalletBalance();
   const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Guest";
+  const [query, setQuery] = useState("");
+  const navigate = useNavigate();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (q) navigate({ to: "/search", search: { q } });
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -39,18 +48,21 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
         <Logo className="hidden sm:flex" />
 
         <div className="mx-2 flex flex-1 justify-center md:mx-8">
-          <div className="relative w-full max-w-xl">
+          <form onSubmit={handleSearch} className="relative w-full max-w-xl">
             <Input
-              placeholder="Search"
+              placeholder="Search videos and artists"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="h-10 rounded-l-full rounded-r-none border-border bg-input pl-4 pr-4 text-sm focus-visible:ring-1"
             />
             <button
+              type="submit"
               className="absolute right-0 top-0 grid h-10 w-14 place-items-center rounded-r-full border border-l-0 border-border bg-surface hover:bg-accent"
               aria-label="Search"
             >
               <Search className="h-4 w-4" />
             </button>
-          </div>
+          </form>
         </div>
 
         {!loading && user && (
